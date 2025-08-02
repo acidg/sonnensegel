@@ -1,0 +1,29 @@
+# PlatformIO
+.pio
+.pioenvs
+.piolibdeps
+.clang_complete
+.gcc-flags.json
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Build outputs
+*.bin
+*.elf
+
+# Local configuration
+config_local.h
+
+# IDE
+.idea/
+*.iml
+
+# Backup files
+*.bak
+*~
