@@ -35,7 +35,6 @@ private:
     char windPulsesTopic[128];
     char windThresholdTopic[128];
     char setWindThresholdTopic[128];
-    char calibrateTopic[128];
     
     void buildTopics();
     bool reconnect();
@@ -57,7 +56,6 @@ public:
     // Callbacks for commands
     std::function<void(const char*)> onCommand;
     std::function<void(float)> onSetPosition;
-    std::function<void(unsigned long)> onCalibrate;
     std::function<void(float)> onSetWindThreshold;
 };
 

@@ -126,9 +126,20 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
             <h3>Configuration</h3>
             
             <div class="form-group">
-                <label>Travel Time (ms):</label>
-                <input type="number" id="travelTime" min="1000" max="120000" value="30000">
-                <button class="btn-config" onclick="calibrate()">Calibrate</button>
+                <label>Travel Time:</label>
+                <span id="currentTravelTime">Loading...</span> ms
+            </div>
+            
+            <div class="calibration-section">
+                <h4>Calibration</h4>
+                <p>1. Ensure awning is at 0% position</p>
+                <p>2. Click Start to begin extension</p>
+                <p>3. Click Stop when fully extended</p>
+                <button class="btn-config" id="calibrateBtn" onclick="toggleCalibration()">Start Calibration</button>
+                <div id="calibrationStatus" style="display: none; margin-top: 10px; padding: 10px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;">
+                    <strong>Calibration in progress...</strong><br>
+                    Click "Stop Calibration" when awning reaches full extension.
+                </div>
             </div>
             
             <div class="wind-info">
@@ -179,15 +190,21 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
             }).catch(err => alert('Error: ' + err.message));
         }
         
-        function calibrate() {
-            const travelTime = document.getElementById('travelTime').value;
+        function toggleCalibration() {
             fetch('/calibrate', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: 'travelTime=' + travelTime
-            }).then(response => {
-                if (!response.ok) throw new Error('Calibration failed');
-                alert('Travel time calibrated successfully');
+                method: 'POST'
+            }).then(response => response.text()).then(message => {
+                if (message.includes('started')) {
+                    document.getElementById('calibrateBtn').textContent = 'Stop Calibration';
+                    document.getElementById('calibrationStatus').style.display = 'block';
+                } else if (message.includes('completed')) {
+                    document.getElementById('calibrateBtn').textContent = 'Start Calibration';
+                    document.getElementById('calibrationStatus').style.display = 'none';
+                    alert('Calibration completed successfully!');
+                    updateStatus();
+                } else {
+                    alert('Error: ' + message);
+                }
             }).catch(err => alert('Error: ' + err.message));
         }
         
@@ -214,9 +231,18 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
                     document.getElementById('motor').textContent = data.motor;
                     document.getElementById('windPulses').textContent = data.windPulses + ' /min';
                     
-                    // Update form values
-                    document.getElementById('travelTime').value = data.travelTime;
+                    // Update travel time display and calibration state
+                    document.getElementById('currentTravelTime').textContent = data.travelTime;
                     document.getElementById('windThreshold').value = data.windThreshold;
+                    
+                    // Update calibration UI state
+                    if (data.calibrating) {
+                        document.getElementById('calibrateBtn').textContent = 'Stop Calibration';
+                        document.getElementById('calibrationStatus').style.display = 'block';
+                    } else {
+                        document.getElementById('calibrateBtn').textContent = 'Start Calibration';
+                        document.getElementById('calibrationStatus').style.display = 'none';
+                    }
                 })
                 .catch(err => console.error('Status update failed:', err));
         }

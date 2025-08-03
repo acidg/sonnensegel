@@ -88,23 +88,16 @@ Configuration is done through the web interface when the device starts. No manua
 
 ## Calibration Procedure
 
-### 1. Travel Time Calibration
+### Travel Time Calibration
 
 The travel time is the duration needed for the awning to move from fully retracted (0%) to fully extended (100%).
 
-**Method 1: Via MQTT**
-```bash
-# Set travel time to 20 seconds (20000 ms)
-mosquitto_pub -h your_mqtt_server -t "home/awning/calibrate" -m "20000"
-```
-
-**Method 2: Via Home Assistant**
-Use the input_number slider in the UI (see homeassistant.yaml)
-
-**Calibration Steps:**
-1. Fully retract the awning
-2. Time how long it takes to fully extend
-3. Set this value as the travel time
+**Via Web Interface:**
+1. Ensure awning is at 0% position (fully retracted)
+2. Open the web interface in your browser
+3. Click "Start Calibration" - awning will begin extending
+4. Click "Stop Calibration" when awning reaches full extension
+5. Travel time is automatically calculated and saved
 
 ### 2. Wind Sensor Calibration
 
@@ -129,9 +122,7 @@ mosquitto_pub -h your_mqtt_server -t "home/awning/set_wind_threshold" -m "30"
 ### Command Topics (Subscribe)
 - `home/awning/set` - Commands: OPEN, CLOSE, STOP
 - `home/awning/set_position` - Target position (0-100)
-- `home/awning/calibrate` - Set travel time in milliseconds
 - `home/awning/set_wind_threshold` - Set wind speed threshold (km/h)
-- `home/awning/set_wind_factor` - Set wind conversion factor
 
 ### Status Topics (Publish)
 - `home/awning/state` - Current state: opening, closing, stopped

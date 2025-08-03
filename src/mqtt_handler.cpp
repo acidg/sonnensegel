@@ -23,7 +23,6 @@ void MqttHandler::buildTopics() {
     snprintf(windPulsesTopic, sizeof(windPulsesTopic), "%s/wind_pulses", baseTopic);
     snprintf(windThresholdTopic, sizeof(windThresholdTopic), "%s/wind_threshold", baseTopic);
     snprintf(setWindThresholdTopic, sizeof(setWindThresholdTopic), "%s/set_wind_threshold", baseTopic);
-    snprintf(calibrateTopic, sizeof(calibrateTopic), "%s/calibrate", baseTopic);
 }
 
 void MqttHandler::begin(const char* srv, uint16_t prt, const char* user, 
@@ -62,7 +61,6 @@ void MqttHandler::staticCallback(char* topic, byte* payload, unsigned int length
 void MqttHandler::subscribe() {
     mqttClient.subscribe(commandTopic);
     mqttClient.subscribe(setPositionTopic);
-    mqttClient.subscribe(calibrateTopic);
     mqttClient.subscribe(setWindThresholdTopic);
 }
 
@@ -216,9 +214,6 @@ void MqttHandler::processMessage(char* topic, char* message) {
     } else if (strcmp(topic, setPositionTopic) == 0 && onSetPosition) {
         float position = atof(message);
         onSetPosition(position);
-    } else if (strcmp(topic, calibrateTopic) == 0 && onCalibrate) {
-        unsigned long travelTime = atol(message);
-        onCalibrate(travelTime);
     } else if (strcmp(topic, setWindThresholdTopic) == 0 && onSetWindThreshold) {
         float threshold = atof(message);
         onSetWindThreshold(threshold);

@@ -6,6 +6,7 @@ const unsigned long MOTOR_START_PULSE_MS = 1000;
 const unsigned long MOTOR_STOP_PULSE_MS = 100;
 const unsigned long BUTTON_DEBOUNCE_MS = 50;
 const unsigned long BUTTON_LONG_PRESS_MS = 1000;
+const unsigned long WIND_SENSOR_DEBOUNCE_MS = 10;
 const unsigned long POSITION_UPDATE_INTERVAL_MS = 100;
 const unsigned long MQTT_RECONNECT_INTERVAL_MS = 5000;
 const unsigned long MQTT_PUBLISH_INTERVAL_MS = 1000;

@@ -13,7 +13,8 @@ extern WindSensor windSensor;
 extern void saveSettings();
 extern void setTargetPositionWithInterrupt(float targetPosition, const char* source);
 
-WebInterface::WebInterface(ConfigManager* config) : server(80), configManager(config) {
+WebInterface::WebInterface(ConfigManager* config) : server(80), configManager(config), 
+    calibrationInProgress(false), calibrationStartTime(0) {
 }
 
 void WebInterface::begin() {
@@ -87,26 +88,40 @@ void WebInterface::handleStatus() {
 }
 
 void WebInterface::handleCalibrate() {
-    if (!server.hasArg("travelTime")) {
-        server.send(400, "text/plain", "Missing travelTime parameter");
-        return;
+    if (!calibrationInProgress) {
+        // Start calibration
+        if (positionTracker.getCurrentPosition() > 5.0) {
+            server.send(400, "text/plain", "Awning must be at 0% position to start calibration");
+            return;
+        }
+        
+        calibrationInProgress = true;
+        calibrationStartTime = millis();
+        setTargetPositionWithInterrupt(100.0, "Calibration");
+        
+        Serial.println("Web: Calibration started - awning extending");
+        server.send(200, "text/plain", "Calibration started");
+    } else {
+        // Stop calibration and calculate travel time
+        unsigned long travelTime = millis() - calibrationStartTime;
+        
+        // Stop motor immediately
+        motor.stop();
+        positionTracker.setTargetPosition(positionTracker.getCurrentPosition());
+        
+        // Set the measured travel time
+        configManager->setTravelTime(travelTime);
+        positionTracker.setTravelTime(travelTime);
+        configManager->save();
+        
+        calibrationInProgress = false;
+        
+        Serial.print("Web: Calibration completed - travel time set to ");
+        Serial.print(travelTime);
+        Serial.println(" ms");
+        
+        server.send(200, "text/plain", "Calibration completed");
     }
-    
-    unsigned long travelTime = server.arg("travelTime").toInt();
-    if (travelTime < 1000 || travelTime > 120000) {
-        server.send(400, "text/plain", "Travel time must be between 1000-120000ms");
-        return;
-    }
-    
-    configManager->setTravelTime(travelTime);
-    positionTracker.setTravelTime(travelTime);
-    configManager->save();
-    
-    Serial.print("Web: Travel time calibrated to ");
-    Serial.print(travelTime);
-    Serial.println(" ms");
-    
-    server.send(200, "text/plain", "OK");
 }
 
 void WebInterface::handleWindConfig() {
@@ -396,6 +411,7 @@ String WebInterface::getStatusJson() {
     doc["travelTime"] = positionTracker.getTravelTime();
     doc["windPulses"] = windSensor.getPulsesPerMinute();
     doc["windThreshold"] = windSensor.getThreshold();
+    doc["calibrating"] = calibrationInProgress;
     
     // Motor state as string
     switch (motor.getState()) {

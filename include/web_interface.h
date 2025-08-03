@@ -9,6 +9,8 @@ class WebInterface {
 private:
     ESP8266WebServer server;
     ConfigManager* configManager;
+    bool calibrationInProgress;
+    unsigned long calibrationStartTime;
     
     void handleRoot();
     void handleControl();
