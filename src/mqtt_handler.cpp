@@ -77,9 +77,9 @@ bool MqttHandler::reconnect() {
     // Check if we should start a new connection attempt
     if (!connectingInProgress) {
         // Calculate backoff delay based on failed attempts
-        unsigned long backoffDelay = MQTT_RECONNECT_INTERVAL_MS;
+        unsigned long backoffDelay = MQTT_RECONNECT_INTERVAL_MS;  // Start with 5 seconds
         if (failedAttempts > 0) {
-            backoffDelay = MQTT_BACKOFF_BASE_MS * min(failedAttempts, 4UL);
+            backoffDelay = MQTT_BACKOFF_BASE_MS * min(failedAttempts, 4UL);  // Then 30s, 60s, 90s, 120s
         }
         
         if (now - lastReconnectAttempt < backoffDelay) {
@@ -93,11 +93,23 @@ bool MqttHandler::reconnect() {
         
         Serial.print("Attempting MQTT connection (attempt ");
         Serial.print(failedAttempts + 1);
-        Serial.print(")...");
+        Serial.println(")");
+        Serial.print("MQTT Config - Server: ");
+        Serial.print(server);
+        Serial.print(", Port: ");
+        Serial.print(port);
+        Serial.print(", ClientID: ");
+        Serial.print(clientId);
+        Serial.print(", Username: ");
+        Serial.print(strlen(username) > 0 ? username : "(none)");
+        Serial.print(", HasPassword: ");
+        Serial.print(strlen(password) > 0 ? "yes" : "no");
+        Serial.print(", AvailabilityTopic: ");
+        Serial.println(availabilityTopic);
         
-        // Set shorter timeout for connection
-        wifiClient.setTimeout(5000);
-        mqttClient.setSocketTimeout(5);
+        // Set very short timeout to prevent blocking
+        wifiClient.setTimeout(1000);
+        mqttClient.setSocketTimeout(1);
         
         bool connected;
         if (strlen(username) > 0) {
