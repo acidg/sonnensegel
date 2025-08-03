@@ -56,6 +56,8 @@ public:
     void handleConfigRoot();
     void handleConfigSave();
     void handleConfigStatus();
+    void handleWiFiScan();
+    void handleFactoryReset();
     void handleCaptivePortal();
     bool isCaptivePortalRequest();
 };

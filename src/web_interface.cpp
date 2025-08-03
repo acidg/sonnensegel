@@ -30,6 +30,7 @@ void WebInterface::begin() {
     server.on("/wind-config", HTTP_POST, [this](){ handleWindConfig(); });
     server.on("/system-config", HTTP_GET, [this](){ handleSystemConfig(); });
     server.on("/system-config", HTTP_POST, [this](){ handleSystemConfigSave(); });
+    server.on("/factory-reset", HTTP_POST, [this](){ handleFactoryReset(); });
     server.onNotFound([this](){ handleNotFound(); });
     
     server.begin();
@@ -216,7 +217,42 @@ void WebInterface::handleSystemConfig() {
                 <button type="submit">Save Configuration</button>
             </div>
         </form>
+        
+        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+            <h3 style="color: #f44336;">Danger Zone</h3>
+            <p style="font-size: 14px; color: #666; margin: 10px 0;">
+                Factory reset will erase all WiFi, MQTT, and awning settings. The device will restart.
+            </p>
+            <button type="button" onclick="factoryReset()" 
+                    style="background: #f44336; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">
+                Factory Reset
+            </button>
+        </div>
     </div>
+    
+    <script>
+        function factoryReset() {
+            if (confirm('WARNING: This will erase ALL settings and restart the device.\\n\\nAre you sure you want to continue?')) {
+                if (confirm('This action cannot be undone. Continue with factory reset?')) {
+                    fetch('/factory-reset', { method: 'POST' })
+                        .then(response => {
+                            if (response.ok) {
+                                alert('Factory reset initiated. Device will restart in a few seconds...');
+                                setTimeout(() => {
+                                    window.location.href = '/';
+                                }, 3000);
+                            } else {
+                                alert('Factory reset failed. Please try again.');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Reset failed:', error);
+                            alert('Factory reset failed. Please try again.');
+                        });
+                }
+            }
+        }
+    </script>
 </body>
 </html>
 )rawliteral";
@@ -298,6 +334,42 @@ void WebInterface::handleSystemConfigSave() {
 )rawliteral";
     
     server.send(200, "text/html", response);
+}
+
+void WebInterface::handleFactoryReset() {
+    Serial.println("Web: Factory reset requested");
+    
+    // Reset configuration
+    configManager->reset();
+    
+    String response = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Factory Reset</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f0f0f0; text-align: center; }
+        .container { max-width: 400px; margin: 50px auto; background: white; padding: 30px; border-radius: 10px; }
+        .success { color: #4CAF50; font-size: 1.2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Factory Reset Complete</h1>
+        <p class="success">All settings have been reset to defaults.</p>
+        <p>The device will restart momentarily...</p>
+        <p><strong>Note:</strong> After restart, connect to "Sonnensegel" WiFi network to reconfigure.</p>
+    </div>
+</body>
+</html>
+)rawliteral";
+    
+    server.send(200, "text/html", response);
+    
+    // Restart device after a short delay
+    delay(2000);
+    ESP.restart();
 }
 
 void WebInterface::handleNotFound() {

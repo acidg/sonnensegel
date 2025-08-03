@@ -118,6 +118,8 @@ void WiFiManager::setupConfigServer() {
     configServer->on("/", [this]() { handleConfigRoot(); });
     configServer->on("/save", HTTP_POST, [this]() { handleConfigSave(); });
     configServer->on("/status", [this]() { handleConfigStatus(); });
+    configServer->on("/scan", [this]() { handleWiFiScan(); });
+    configServer->on("/reset", HTTP_POST, [this]() { handleFactoryReset(); });
     
     // Captive portal handlers - catch all requests
     configServer->onNotFound([this]() { handleCaptivePortal(); });
@@ -218,6 +220,21 @@ void WiFiManager::handleConfigRoot() {
         button:hover { background: #45a049; }
         .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
         .info { background: #e3f2fd; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .btn-scan { background: #2196F3; margin-bottom: 10px; }
+        .btn-scan:hover { background: #1976D2; }
+        .wifi-networks { max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; margin: 10px 0; }
+        .wifi-network { 
+            padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+        }
+        .wifi-network:hover { background: #f5f5f5; }
+        .wifi-network:last-child { border-bottom: none; }
+        .wifi-ssid { font-weight: bold; }
+        .wifi-signal { 
+            font-size: 12px; color: #666; display: flex; align-items: center; gap: 5px;
+        }
+        .signal-bars { font-size: 16px; }
+        .wifi-lock { color: #ff9800; }
+        .scanning { text-align: center; padding: 20px; color: #666; }
     </style>
 </head>
 <body>
@@ -231,9 +248,13 @@ void WiFiManager::handleConfigRoot() {
         <form method="POST" action="/save">
             <div class="section">
                 <h3>WiFi Configuration</h3>
+                
+                <button type="button" class="btn-scan" onclick="scanWiFi()">Scan for Networks</button>
+                <div id="wifi-networks" class="wifi-networks" style="display: none;"></div>
+                
                 <div class="form-group">
                     <label>WiFi Network (SSID):</label>
-                    <input type="text" name="wifi_ssid" value=")rawliteral" + 
+                    <input type="text" id="wifi_ssid" name="wifi_ssid" value=")rawliteral" + 
                     String(configManager->getWiFiSSID()) + R"rawliteral(" required>
                 </div>
                 <div class="form-group">
@@ -280,8 +301,104 @@ void WiFiManager::handleConfigRoot() {
         
         <div style="text-align: center; margin-top: 20px;">
             <a href="/status">Check Status</a>
+            <br><br>
+            <button type="button" onclick="factoryReset()" style="background: #f44336; width: auto; padding: 8px 16px; font-size: 14px;">
+                Factory Reset
+            </button>
         </div>
     </div>
+    
+    <script>
+        function scanWiFi() {
+            const button = document.querySelector('.btn-scan');
+            const networksDiv = document.getElementById('wifi-networks');
+            
+            button.textContent = 'Scanning...';
+            button.disabled = true;
+            
+            networksDiv.innerHTML = '<div class="scanning">Scanning for WiFi networks...</div>';
+            networksDiv.style.display = 'block';
+            
+            fetch('/scan')
+                .then(response => response.json())
+                .then(networks => {
+                    displayNetworks(networks);
+                    button.textContent = 'Scan for Networks';
+                    button.disabled = false;
+                })
+                .catch(error => {
+                    console.error('Scan failed:', error);
+                    networksDiv.innerHTML = '<div class="scanning">Scan failed. Please try again.</div>';
+                    button.textContent = 'Scan for Networks';
+                    button.disabled = false;
+                });
+        }
+        
+        function displayNetworks(networks) {
+            const networksDiv = document.getElementById('wifi-networks');
+            
+            if (networks.length === 0) {
+                networksDiv.innerHTML = '<div class="scanning">No networks found</div>';
+                return;
+            }
+            
+            // Sort by signal strength (RSSI)
+            networks.sort((a, b) => b.rssi - a.rssi);
+            
+            let html = '';
+            networks.forEach(network => {
+                if (network.ssid && network.ssid.trim() !== '') {
+                    const signalBars = getSignalBars(network.rssi);
+                    const isSecure = network.encryption !== 7; // 7 = ENC_TYPE_NONE
+                    
+                    html += `
+                        <div class="wifi-network" onclick="selectNetwork('${escapeHtml(network.ssid)}')">
+                            <div class="wifi-ssid">${escapeHtml(network.ssid)}</div>
+                            <div class="wifi-signal">
+                                ${isSecure ? '<span class="wifi-lock">[SECURED]</span>' : ''}
+                                <span class="signal-bars">${signalBars}</span>
+                                <span>${network.rssi} dBm</span>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            
+            networksDiv.innerHTML = html || '<div class="scanning">No networks found</div>';
+        }
+        
+        function selectNetwork(ssid) {
+            document.getElementById('wifi_ssid').value = ssid;
+            document.getElementById('wifi-networks').style.display = 'none';
+        }
+        
+        function getSignalBars(rssi) {
+            if (rssi >= -50) return '[■■■■]';
+            if (rssi >= -60) return '[■■■·]';
+            if (rssi >= -70) return '[■■··]';
+            if (rssi >= -80) return '[■···]';
+            return '[····]';
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function factoryReset() {
+            if (confirm('Are you sure you want to reset all settings to defaults? This will erase WiFi, MQTT, and awning configuration. The device will restart.')) {
+                fetch('/reset', { method: 'POST' })
+                    .then(() => {
+                        alert('Factory reset initiated. Device will restart...');
+                    })
+                    .catch(error => {
+                        console.error('Reset failed:', error);
+                        alert('Reset failed. Please try again.');
+                    });
+            }
+        }
+    </script>
 </body>
 </html>
 )rawliteral";
@@ -411,6 +528,76 @@ void WiFiManager::handleConfigStatus() {
     configServer->send(200, "text/html", html);
 }
 
+void WiFiManager::handleWiFiScan() {
+    Serial.println("WiFi: Starting network scan...");
+    
+    // Start WiFi scan
+    int networkCount = WiFi.scanNetworks();
+    
+    // Build JSON response
+    String json = "[";
+    
+    if (networkCount > 0) {
+        for (int i = 0; i < networkCount; i++) {
+            if (i > 0) json += ",";
+            
+            json += "{";
+            json += "\"ssid\":\"" + WiFi.SSID(i) + "\",";
+            json += "\"rssi\":" + String(WiFi.RSSI(i)) + ",";
+            json += "\"encryption\":" + String(WiFi.encryptionType(i));
+            json += "}";
+        }
+    }
+    
+    json += "]";
+    
+    Serial.printf("WiFi: Scan complete - found %d networks\n", networkCount);
+    
+    configServer->sendHeader("Access-Control-Allow-Origin", "*");
+    configServer->send(200, "application/json", json);
+    
+    // Clean up scan results
+    WiFi.scanDelete();
+}
+
+void WiFiManager::handleFactoryReset() {
+    Serial.println("WiFi: Factory reset requested");
+    
+    // Reset configuration
+    configManager->reset();
+    
+    String html = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Factory Reset</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="refresh" content="5;url=/">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f0f0f0; text-align: center; }
+        .container { max-width: 400px; margin: 50px auto; background: white; padding: 30px; border-radius: 10px; }
+        .success { color: #4CAF50; font-size: 1.2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Factory Reset Complete</h1>
+        <p class="success">All settings have been reset to defaults.</p>
+        <p>The device will restart and create a fresh configuration.</p>
+        <p>Redirecting to setup page in 5 seconds...</p>
+        <a href="/">Return to Setup</a>
+    </div>
+</body>
+</html>
+)rawliteral";
+    
+    configServer->send(200, "text/html", html);
+    
+    // Restart device after a short delay
+    delay(1000);
+    ESP.restart();
+}
+
 bool WiFiManager::isCaptivePortalRequest() {
     String host = configServer->hostHeader();
     return !host.equals(WiFi.softAPIP().toString());
@@ -490,7 +677,6 @@ void WiFiManager::handleCaptivePortal() {
 </head>
 <body>
     <div class="container">
-        <div class="icon">☀️</div>
         <h1>Sonnensegel</h1>
         <p>Welcome to the Awning Controller!</p>
         
@@ -501,8 +687,8 @@ void WiFiManager::handleCaptivePortal() {
         
         <p>Configure your WiFi and MQTT settings to get started.</p>
         
-        <a href="/" class="button">📡 Setup WiFi & MQTT</a>
-        <a href="/status" class="button">📊 Status</a>
+        <a href="/" class="button">Setup WiFi & MQTT</a>
+        <a href="/status" class="button">Status</a>
         
         <p style="font-size: 0.9em; margin-top: 30px; opacity: 0.8;">
             Redirecting automatically in 3 seconds...

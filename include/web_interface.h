@@ -17,6 +17,7 @@ private:
     void handleWindConfig();
     void handleSystemConfig();
     void handleSystemConfigSave();
+    void handleFactoryReset();
     void handleNotFound();
     
     String getStatusJson();
