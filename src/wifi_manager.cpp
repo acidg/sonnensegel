@@ -5,7 +5,7 @@ const char* WiFiManager::AP_PASSWORD = nullptr;
 
 WiFiManager::WiFiManager(ConfigManager* config) 
     : configManager(config), configServer(nullptr), dnsServer(nullptr), currentMode(AWNING_WIFI_CONNECTING),
-      lastConnectionAttempt(0), lastStatusCheck(0), connectionAttempts(0), apStarted(false) {
+      lastConnectionAttempt(0), lastStatusCheck(0), connectionAttempts(0), apStarted(false), hasRetriedFromAP(false) {
 }
 
 WiFiManager::~WiFiManager() {
@@ -41,6 +41,12 @@ bool WiFiManager::connectToWiFi() {
     }
     
     Serial.printf("WiFi: Connecting to '%s'\n", ssid);
+    
+    // If we're in AP mode, switch to STA+AP mode to keep AP running during connection attempt
+    if (currentMode == AWNING_WIFI_AP_FALLBACK) {
+        WiFi.mode(WIFI_AP_STA);
+    }
+    
     WiFi.begin(ssid, password);
     
     currentMode = AWNING_WIFI_CONNECTING;
@@ -160,7 +166,12 @@ void WiFiManager::update() {
                 
                 if (connectionAttempts >= MAX_CONNECTION_ATTEMPTS) {
                     Serial.println("WiFi: Max attempts reached, starting AP fallback");
-                    startAP();
+                    if (!apStarted) {
+                        hasRetriedFromAP = false;  // Reset retry flag when entering AP mode
+                        startAP();
+                    } else {
+                        currentMode = AWNING_WIFI_AP_FALLBACK;
+                    }
                 } else {
                     Serial.println("WiFi: Retrying connection");
                     connectToWiFi();
@@ -173,10 +184,12 @@ void WiFiManager::update() {
                 connectionAttempts = 0;
                 connectToWiFi();
             }
-        } else if (currentMode == AWNING_WIFI_AP_FALLBACK && configManager->hasWiFiConfig()) {
-            // Periodically try to reconnect if we have WiFi config
+        } else if (currentMode == AWNING_WIFI_AP_FALLBACK && configManager->hasWiFiConfig() && !hasRetriedFromAP) {
+            // Try to reconnect once after entering AP mode, then stop retrying
             if (now - lastConnectionAttempt >= RETRY_INTERVAL) {
-                Serial.println("WiFi: Attempting reconnection from AP mode");
+                Serial.println("WiFi: Attempting final reconnection from AP mode");
+                hasRetriedFromAP = true;
+                connectionAttempts = 0;
                 connectToWiFi();
             }
         }
@@ -468,6 +481,7 @@ void WiFiManager::handleConfigSave() {
     if (success && ssid.length() > 0) {
         // Attempt to connect to new WiFi configuration
         connectionAttempts = 0;
+        hasRetriedFromAP = false;  // Reset retry flag for new credentials
         connectToWiFi();
     }
 }

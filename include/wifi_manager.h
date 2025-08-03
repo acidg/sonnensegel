@@ -24,11 +24,12 @@ private:
     unsigned long lastStatusCheck;
     int connectionAttempts;
     bool apStarted;
+    bool hasRetriedFromAP;
     
     static const unsigned long CONNECTION_TIMEOUT = 10000;
-    static const unsigned long RETRY_INTERVAL = 30000;
+    static const unsigned long RETRY_INTERVAL = 60000;
     static const unsigned long STATUS_CHECK_INTERVAL = 5000;
-    static const int MAX_CONNECTION_ATTEMPTS = 3;
+    static const int MAX_CONNECTION_ATTEMPTS = 1;
     static const char* AP_SSID;
     static const char* AP_PASSWORD;
     static const byte DNS_PORT = 53;
