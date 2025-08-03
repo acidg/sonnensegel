@@ -183,6 +183,13 @@ void WebInterface::handleSystemConfig() {
             <div class="section">
                 <h3>MQTT Settings</h3>
                 <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="mqtt_enabled" value="1" )rawliteral" + 
+                        String(configManager->isMQTTEnabled() ? "checked" : "") + R"rawliteral(> 
+                        Enable MQTT Integration
+                    </label>
+                </div>
+                <div class="form-group">
                     <label>MQTT Server:</label>
                     <input type="text" name="mqtt_server" value=")rawliteral" + 
                     String(configManager->getMQTTServer()) + R"rawliteral(">
@@ -279,6 +286,10 @@ void WebInterface::handleSystemConfigSave() {
     
     // Handle MQTT settings
     if (server.hasArg("mqtt_server")) {
+        // Check if MQTT is enabled
+        bool mqttEnabled = server.hasArg("mqtt_enabled");
+        configManager->setMQTTEnabled(mqttEnabled);
+        
         String server_addr = server.arg("mqtt_server");
         uint16_t port = server.arg("mqtt_port").toInt();
         String username = server.arg("mqtt_username");

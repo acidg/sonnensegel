@@ -9,6 +9,7 @@ struct WiFiConfig {
 };
 
 struct MQTTConfig {
+    bool enabled;
     char server[64];
     uint16_t port;
     char username[32];
@@ -53,12 +54,14 @@ public:
     void setWiFiCredentials(const char* ssid, const char* password);
     
     // MQTT getters/setters
+    bool isMQTTEnabled() const { return config.mqtt.enabled; }
     const char* getMQTTServer() const { return config.mqtt.server; }
     uint16_t getMQTTPort() const { return config.mqtt.port; }
     const char* getMQTTUsername() const { return config.mqtt.username; }
     const char* getMQTTPassword() const { return config.mqtt.password; }
     const char* getMQTTClientId() const { return config.mqtt.clientId; }
     const char* getMQTTBaseTopic() const { return config.mqtt.baseTopic; }
+    void setMQTTEnabled(bool enabled);
     void setMQTTConfig(const char* server, uint16_t port, const char* username, 
                        const char* password, const char* clientId, const char* baseTopic);
     

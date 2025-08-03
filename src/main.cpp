@@ -205,17 +205,41 @@ void loop() {
     
     // Initialize services when WiFi becomes available
     static bool servicesInitialized = false;
+    static bool mqttInitialized = false;
+    
     if (wifiManager.isConnected() && !servicesInitialized) {
-        mqtt.begin(configManager.getMQTTServer(), configManager.getMQTTPort(), 
-                  configManager.getMQTTUsername(), configManager.getMQTTPassword(),
-                  configManager.getMQTTClientId());
-        mqtt.setBaseTopic(configManager.getMQTTBaseTopic());
         webInterface.begin();
         servicesInitialized = true;
-        Serial.println("Network services initialized");
+        Serial.println("Web interface initialized");
+        
+        // Initialize MQTT only if enabled
+        if (configManager.isMQTTEnabled() && !mqttInitialized) {
+            mqtt.begin(configManager.getMQTTServer(), configManager.getMQTTPort(), 
+                      configManager.getMQTTUsername(), configManager.getMQTTPassword(),
+                      configManager.getMQTTClientId());
+            mqtt.setBaseTopic(configManager.getMQTTBaseTopic());
+            mqttInitialized = true;
+            Serial.println("MQTT service initialized");
+        }
     } else if (!wifiManager.isConnected() && servicesInitialized) {
         servicesInitialized = false;
+        mqttInitialized = false;
         Serial.println("Network services stopped");
+    }
+    
+    // Handle MQTT enable/disable changes
+    if (wifiManager.isConnected() && servicesInitialized) {
+        if (configManager.isMQTTEnabled() && !mqttInitialized) {
+            mqtt.begin(configManager.getMQTTServer(), configManager.getMQTTPort(), 
+                      configManager.getMQTTUsername(), configManager.getMQTTPassword(),
+                      configManager.getMQTTClientId());
+            mqtt.setBaseTopic(configManager.getMQTTBaseTopic());
+            mqttInitialized = true;
+            Serial.println("MQTT service enabled");
+        } else if (!configManager.isMQTTEnabled() && mqttInitialized) {
+            mqttInitialized = false;
+            Serial.println("MQTT service disabled");
+        }
     }
     
     // Handle buttons FIRST - they have priority over all other commands
@@ -232,9 +256,13 @@ void loop() {
     
     // Only run network services if connected
     if (servicesInitialized) {
-        mqtt.loop();
         webInterface.loop();
-        publishState();
+        
+        // Only run MQTT services if enabled and initialized
+        if (mqttInitialized) {
+            mqtt.loop();
+            publishState();
+        }
     }
     
     yield();

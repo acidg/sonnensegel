@@ -266,6 +266,13 @@ void WiFiManager::handleConfigRoot() {
             <div class="section">
                 <h3>MQTT Configuration</h3>
                 <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="mqtt_enabled" value="1" )rawliteral" + 
+                        String(configManager->isMQTTEnabled() ? "checked" : "") + R"rawliteral(> 
+                        Enable MQTT Integration
+                    </label>
+                </div>
+                <div class="form-group">
                     <label>MQTT Server:</label>
                     <input type="text" name="mqtt_server" value=")rawliteral" + 
                     String(configManager->getMQTTServer()) + R"rawliteral(">
@@ -416,6 +423,9 @@ void WiFiManager::handleConfigSave() {
     }
     
     // Save MQTT configuration
+    bool mqttEnabled = configServer->hasArg("mqtt_enabled");
+    configManager->setMQTTEnabled(mqttEnabled);
+    
     String mqttServer = configServer->arg("mqtt_server");
     String mqttPort = configServer->arg("mqtt_port");
     String mqttUsername = configServer->arg("mqtt_username");

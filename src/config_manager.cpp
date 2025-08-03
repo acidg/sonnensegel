@@ -22,7 +22,8 @@ void ConfigManager::setDefaults() {
     memset(config.wifi.ssid, 0, sizeof(config.wifi.ssid));
     memset(config.wifi.password, 0, sizeof(config.wifi.password));
     
-    // MQTT defaults
+    // MQTT defaults - disabled by default
+    config.mqtt.enabled = false;
     strncpy(config.mqtt.server, "192.168.1.100", sizeof(config.mqtt.server) - 1);
     config.mqtt.port = 1883;
     memset(config.mqtt.username, 0, sizeof(config.mqtt.username));
@@ -99,6 +100,10 @@ void ConfigManager::setWiFiCredentials(const char* ssid, const char* password) {
     
     strncpy(config.wifi.password, password, sizeof(config.wifi.password) - 1);
     config.wifi.password[sizeof(config.wifi.password) - 1] = '\0';
+}
+
+void ConfigManager::setMQTTEnabled(bool enabled) {
+    config.mqtt.enabled = enabled;
 }
 
 void ConfigManager::setMQTTConfig(const char* server, uint16_t port, const char* username, 
