@@ -1,9 +1,11 @@
 #include "mqtt_handler.h"
+#include "constants.h"
 
 MqttHandler* mqttHandlerInstance = nullptr;
 
 MqttHandler::MqttHandler() 
-    : mqttClient(wifiClient), lastReconnectAttempt(0), lastPublish(0), port(1883) {
+    : mqttClient(wifiClient), lastReconnectAttempt(0), lastPublish(0), 
+      connectionStartTime(0), connectingInProgress(false), failedAttempts(0), port(1883) {
     mqttHandlerInstance = this;
     strcpy(server, "");
     strcpy(username, "");
@@ -66,36 +68,79 @@ void MqttHandler::subscribe() {
 
 bool MqttHandler::reconnect() {
     if (!WiFi.isConnected()) {
+        connectingInProgress = false;
         return false;
     }
     
     unsigned long now = millis();
-    if (now - lastReconnectAttempt < MQTT_RECONNECT_INTERVAL_MS) {
+    
+    // Check if we should start a new connection attempt
+    if (!connectingInProgress) {
+        // Calculate backoff delay based on failed attempts
+        unsigned long backoffDelay = MQTT_RECONNECT_INTERVAL_MS;
+        if (failedAttempts > 0) {
+            backoffDelay = MQTT_BACKOFF_BASE_MS * min(failedAttempts, 4UL);
+        }
+        
+        if (now - lastReconnectAttempt < backoffDelay) {
+            return false;
+        }
+        
+        // Start new connection attempt
+        connectingInProgress = true;
+        connectionStartTime = now;
+        lastReconnectAttempt = now;
+        
+        Serial.print("Attempting MQTT connection (attempt ");
+        Serial.print(failedAttempts + 1);
+        Serial.print(")...");
+        
+        // Set shorter timeout for connection
+        wifiClient.setTimeout(5000);
+        mqttClient.setSocketTimeout(5);
+        
+        bool connected;
+        if (strlen(username) > 0) {
+            connected = mqttClient.connect(clientId, username, password, 
+                                         availabilityTopic, 0, true, "offline");
+        } else {
+            connected = mqttClient.connect(clientId, availabilityTopic, 0, true, "offline");
+        }
+        
+        connectingInProgress = false;
+        
+        if (!connected) {
+            failedAttempts++;
+            Serial.print("failed, rc=");
+            Serial.print(mqttClient.state());
+            Serial.print(" (attempt ");
+            Serial.print(failedAttempts);
+            Serial.println(")");
+            
+            if (failedAttempts >= MQTT_MAX_FAILED_ATTEMPTS) {
+                Serial.println("MQTT: Max connection attempts reached, backing off");
+            }
+            return false;
+        }
+        
+        // Connection successful
+        failedAttempts = 0;
+        Serial.println("connected");
+        mqttClient.publish(availabilityTopic, "online", true);
+        subscribe();
+        return true;
+    }
+    
+    // Check for connection timeout
+    if (now - connectionStartTime > MQTT_CONNECTION_TIMEOUT_MS) {
+        Serial.println("MQTT connection timeout");
+        connectingInProgress = false;
+        failedAttempts++;
+        wifiClient.stop();
         return false;
     }
     
-    lastReconnectAttempt = now;
-    
-    Serial.print("Attempting MQTT connection...");
-    
-    bool connected;
-    if (strlen(username) > 0) {
-        connected = mqttClient.connect(clientId, username, password, 
-                                     availabilityTopic, 0, true, "offline");
-    } else {
-        connected = mqttClient.connect(clientId, availabilityTopic, 0, true, "offline");
-    }
-    
-    if (!connected) {
-        Serial.print("failed, rc=");
-        Serial.println(mqttClient.state());
-        return false;
-    }
-    
-    Serial.println("connected");
-    mqttClient.publish(availabilityTopic, "online", true);
-    subscribe();
-    return true;
+    return false;
 }
 
 void MqttHandler::loop() {

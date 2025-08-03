@@ -161,7 +161,7 @@ void WebInterface::handleSystemConfig() {
 <body>
     <div class="container">
         <div class="nav">
-            <a href="/">← Back to Control</a>
+            <a href="/">Back to Control</a>
         </div>
         
         <h1>System Configuration</h1>

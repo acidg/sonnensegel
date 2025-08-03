@@ -6,6 +6,7 @@
 #include "motor_controller.h"
 #include "position_tracker.h"
 #include "wind_sensor.h"
+#include "constants.h"
 
 class MqttHandler {
 private:
@@ -13,6 +14,9 @@ private:
     PubSubClient mqttClient;
     unsigned long lastReconnectAttempt;
     unsigned long lastPublish;
+    unsigned long connectionStartTime;
+    bool connectingInProgress;
+    unsigned long failedAttempts;
     
     // Configuration
     char server[64];

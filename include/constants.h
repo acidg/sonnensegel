@@ -9,6 +9,9 @@ const unsigned long BUTTON_LONG_PRESS_MS = 1000;
 const unsigned long POSITION_UPDATE_INTERVAL_MS = 100;
 const unsigned long MQTT_RECONNECT_INTERVAL_MS = 5000;
 const unsigned long MQTT_PUBLISH_INTERVAL_MS = 1000;
+const unsigned long MQTT_CONNECTION_TIMEOUT_MS = 10000;
+const unsigned long MQTT_MAX_FAILED_ATTEMPTS = 5;
+const unsigned long MQTT_BACKOFF_BASE_MS = 30000;
 const unsigned long MOTOR_PULSE_DELAY_MS = 500;
 
 // Position Constants
