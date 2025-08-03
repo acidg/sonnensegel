@@ -1,7 +1,7 @@
 #include "wifi_manager.h"
 
-const char* WiFiManager::AP_SSID = "Awning-Config";
-const char* WiFiManager::AP_PASSWORD = "configure";
+const char* WiFiManager::AP_SSID = "Sonnensegel";
+const char* WiFiManager::AP_PASSWORD = nullptr;
 
 WiFiManager::WiFiManager(ConfigManager* config) 
     : configManager(config), configServer(nullptr), currentMode(AWNING_WIFI_CONNECTING),
@@ -58,9 +58,14 @@ void WiFiManager::startAP() {
     IPAddress netMask(255, 255, 255, 0);
     WiFi.softAPConfig(apIP, apIP, netMask);
     
-    bool success = WiFi.softAP(AP_SSID, AP_PASSWORD);
+    bool success;
+    if (AP_PASSWORD) {
+        success = WiFi.softAP(AP_SSID, AP_PASSWORD);
+    } else {
+        success = WiFi.softAP(AP_SSID);
+    }
     if (success) {
-        Serial.printf("WiFi: AP started - SSID: %s, IP: %s\n", AP_SSID, WiFi.softAPIP().toString().c_str());
+        Serial.printf("WiFi: AP started - SSID: %s (open), IP: %s\n", AP_SSID, WiFi.softAPIP().toString().c_str());
         setupConfigServer();
         currentMode = AWNING_WIFI_AP_FALLBACK;
         apStarted = true;

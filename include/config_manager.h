@@ -4,7 +4,7 @@
 #include <Arduino.h>
 
 struct WiFiConfig {
-    char ssid[32];
+    char ssid[64];
     char password[64];
 };
 
