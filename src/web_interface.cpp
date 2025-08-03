@@ -11,6 +11,7 @@ extern MotorController motor;
 extern PositionTracker positionTracker;
 extern WindSensor windSensor;
 extern void saveSettings();
+extern void setTargetPositionWithInterrupt(float targetPosition, const char* source);
 
 WebInterface::WebInterface(ConfigManager* config) : server(80), configManager(config) {
 }
@@ -57,11 +58,9 @@ void WebInterface::handleControl() {
     String action = server.arg("action");
     
     if (action == "open") {
-        positionTracker.setTargetPosition(100.0);
-        Serial.println("Web: Command OPEN");
+        setTargetPositionWithInterrupt(100.0, "Web");
     } else if (action == "close") {
-        positionTracker.setTargetPosition(0.0);
-        Serial.println("Web: Command CLOSE");
+        setTargetPositionWithInterrupt(0.0, "Web");
     } else if (action == "stop") {
         motor.stop();
         positionTracker.setTargetPosition(positionTracker.getCurrentPosition());
@@ -69,10 +68,7 @@ void WebInterface::handleControl() {
     } else if (action == "position" && server.hasArg("value")) {
         float position = server.arg("value").toFloat();
         if (position >= 0.0 && position <= 100.0) {
-            positionTracker.setTargetPosition(position);
-            Serial.print("Web: Set position to ");
-            Serial.print(position);
-            Serial.println("%");
+            setTargetPositionWithInterrupt(position, "Web");
         } else {
             server.send(400, "text/plain", "Invalid position value");
             return;

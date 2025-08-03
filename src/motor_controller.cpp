@@ -47,6 +47,24 @@ void MotorController::start(MotorState direction) {
     motorStartTime = millis();
 }
 
+void MotorController::startWithoutStop(MotorState direction) {
+    if (direction != MOTOR_EXTENDING && direction != MOTOR_RETRACTING) {
+        return;
+    }
+    
+    // Deactivate any active relays first (no stop pulse)
+    if (isRelayActive()) {
+        deactivateRelays();
+        delay(100); // Brief pause to let relays settle
+    }
+    
+    uint8_t relayPin = (direction == MOTOR_EXTENDING) ? RELAY_EXTEND : RELAY_RETRACT;
+    sendPulse(relayPin, MOTOR_START_PULSE_MS);
+    
+    state = direction;
+    motorStartTime = millis();
+}
+
 void MotorController::stop(bool sendStopPulse) {
     if (state == MOTOR_IDLE) {
         return;

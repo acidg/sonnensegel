@@ -25,6 +25,7 @@ public:
     MotorController();
     void begin();
     void start(MotorState direction);
+    void startWithoutStop(MotorState direction);
     void stop(bool sendStopPulse = true);
     MotorState getState() const { return state; }
     unsigned long getRunTime() const;

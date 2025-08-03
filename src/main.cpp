@@ -39,6 +39,19 @@ void IRAM_ATTR windSensorISR() {
     windPulseCount++;
 }
 
+// Helper function to set new target (allows motor controller to handle direction changes)
+void setTargetPositionWithInterrupt(float targetPosition, const char* source = "") {
+    // Set new target position - motor control logic will handle direction changes
+    positionTracker.setTargetPosition(targetPosition);
+    
+    if (strlen(source) > 0) {
+        Serial.print(source);
+        Serial.print(": Target set to ");
+        Serial.print(targetPosition);
+        Serial.println("%");
+    }
+}
+
 // Initialize all components
 void initializeComponents() {
     extendButton.begin();
@@ -77,17 +90,18 @@ void saveSettings() {
 void setupMqttCallbacks() {
     mqtt.onCommand = [](const char* command) {
         if (strcmp(command, "OPEN") == 0) {
-            positionTracker.setTargetPosition(100.0);
+            setTargetPositionWithInterrupt(100.0, "MQTT");
         } else if (strcmp(command, "CLOSE") == 0) {
-            positionTracker.setTargetPosition(0.0);
+            setTargetPositionWithInterrupt(0.0, "MQTT");
         } else if (strcmp(command, "STOP") == 0) {
             motor.stop();
             positionTracker.setTargetPosition(positionTracker.getCurrentPosition());
+            Serial.println("MQTT: Emergency stop");
         }
     };
     
     mqtt.onSetPosition = [](float position) {
-        positionTracker.setTargetPosition(position);
+        setTargetPositionWithInterrupt(position, "MQTT");
     };
     
     mqtt.onCalibrate = [](unsigned long travelTime) {
@@ -118,10 +132,7 @@ bool handleButtonPress(ButtonHandler& button, float targetPosition) {
         Serial.println("Button: Emergency stop");
         return true;
     } else if (action == BUTTON_LONG_PRESS) {
-        positionTracker.setTargetPosition(targetPosition);
-        Serial.print("Button: Moving to ");
-        Serial.print(targetPosition);
-        Serial.println("%");
+        setTargetPositionWithInterrupt(targetPosition, "Button");
         return true;
     }
     return false;
@@ -138,9 +149,15 @@ void updateMotorControl() {
         return;
     }
     
-    if (!motor.isMoving() && !positionTracker.shouldStop(motor.getState())) {
-        MotorState requiredDirection = positionTracker.getRequiredDirection();
-        if (requiredDirection != MOTOR_IDLE) {
+    MotorState requiredDirection = positionTracker.getRequiredDirection();
+    
+    // Start motor if needed
+    if (requiredDirection != MOTOR_IDLE && requiredDirection != motor.getState()) {
+        if (motor.isMoving()) {
+            // Direction change - no stop pulse needed
+            motor.startWithoutStop(requiredDirection);
+        } else {
+            // Starting from idle - use normal start
             motor.start(requiredDirection);
         }
     }
@@ -151,7 +168,7 @@ void handleWindSafety() {
     windSensor.update();
     
     if (windSensor.isSafetyTriggered() && positionTracker.getCurrentPosition() > 0.0) {
-        positionTracker.setTargetPosition(0.0);
+        setTargetPositionWithInterrupt(0.0, "Wind Safety");
         windSensor.resetSafetyTrigger();
     }
 }
