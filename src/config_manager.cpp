@@ -21,6 +21,7 @@ void ConfigManager::setDefaults() {
     // WiFi defaults - empty for initial setup
     memset(config.wifi.ssid, 0, sizeof(config.wifi.ssid));
     memset(config.wifi.password, 0, sizeof(config.wifi.password));
+    strncpy(config.wifi.hostname, "sonnensegel", sizeof(config.wifi.hostname) - 1);
     
     // MQTT defaults - disabled by default
     config.mqtt.enabled = false;
@@ -28,8 +29,8 @@ void ConfigManager::setDefaults() {
     config.mqtt.port = 1883;
     memset(config.mqtt.username, 0, sizeof(config.mqtt.username));
     memset(config.mqtt.password, 0, sizeof(config.mqtt.password));
-    strncpy(config.mqtt.clientId, "awning_controller", sizeof(config.mqtt.clientId) - 1);
-    strncpy(config.mqtt.baseTopic, "home/awning", sizeof(config.mqtt.baseTopic) - 1);
+    strncpy(config.mqtt.clientId, "sonnensegel", sizeof(config.mqtt.clientId) - 1);
+    strncpy(config.mqtt.baseTopic, "home/sonnensegel", sizeof(config.mqtt.baseTopic) - 1);
     
     // Awning defaults
     config.awning.travelTimeMs = DEFAULT_TRAVEL_TIME_MS;
@@ -100,6 +101,11 @@ void ConfigManager::setWiFiCredentials(const char* ssid, const char* password) {
     
     strncpy(config.wifi.password, password, sizeof(config.wifi.password) - 1);
     config.wifi.password[sizeof(config.wifi.password) - 1] = '\0';
+}
+
+void ConfigManager::setHostname(const char* hostname) {
+    strncpy(config.wifi.hostname, hostname, sizeof(config.wifi.hostname) - 1);
+    config.wifi.hostname[sizeof(config.wifi.hostname) - 1] = '\0';
 }
 
 void ConfigManager::setMQTTEnabled(bool enabled) {

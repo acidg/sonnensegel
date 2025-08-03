@@ -1,5 +1,6 @@
 #include "web_interface.h"
 #include <ArduinoJson.h>
+#include <ESP8266mDNS.h>
 #include "motor_controller.h"
 #include "position_tracker.h"
 #include "wind_sensor.h"
@@ -193,6 +194,11 @@ void WebInterface::handleSystemConfig() {
                     <label>WiFi Password:</label>
                     <input type="password" name="wifi_password" placeholder="Enter new password">
                 </div>
+                <div class="form-group">
+                    <label>Hostname:</label>
+                    <input type="text" name="hostname" value=")rawliteral" + 
+                    String(configManager->getHostname()) + R"rawliteral(" maxlength="31">
+                </div>
             </div>
             
             <div class="section">
@@ -289,13 +295,33 @@ void WebInterface::handleSystemConfigSave() {
     // Handle WiFi settings
     if (server.hasArg("wifi_ssid")) {
         String currentSSID = configManager->getWiFiSSID();
+        String currentHostname = configManager->getHostname();
         String newSSID = server.arg("wifi_ssid");
         String newPassword = server.arg("wifi_password");
+        String newHostname = server.arg("hostname");
         
         if (newSSID != currentSSID || newPassword.length() > 0) {
             const char* password = newPassword.length() > 0 ? newPassword.c_str() : configManager->getWiFiPassword();
             configManager->setWiFiCredentials(newSSID.c_str(), password);
             wifiChanged = true;
+        }
+        
+        if (newHostname != currentHostname && newHostname.length() > 0) {
+            configManager->setHostname(newHostname.c_str());
+            wifiChanged = true;
+            
+            // Restart mDNS with new hostname if currently running
+            if (MDNS.isRunning()) {
+                MDNS.end();
+                if (MDNS.begin(newHostname.c_str())) {
+                    MDNS.addService("http", "tcp", 80);
+                    MDNS.addServiceTxt("http", "tcp", "device", "sonnensegel");
+                    MDNS.addServiceTxt("http", "tcp", "version", "1.0");
+                    Serial.printf("mDNS: Restarted with new hostname '%s.local'\n", newHostname.c_str());
+                } else {
+                    Serial.println("mDNS: Failed to restart with new hostname");
+                }
+            }
         }
     }
     

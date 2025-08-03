@@ -6,6 +6,7 @@
 struct WiFiConfig {
     char ssid[64];
     char password[64];
+    char hostname[32];
 };
 
 struct MQTTConfig {
@@ -51,7 +52,9 @@ public:
     // WiFi getters/setters
     const char* getWiFiSSID() const { return config.wifi.ssid; }
     const char* getWiFiPassword() const { return config.wifi.password; }
+    const char* getHostname() const { return config.wifi.hostname; }
     void setWiFiCredentials(const char* ssid, const char* password);
+    void setHostname(const char* hostname);
     
     // MQTT getters/setters
     bool isMQTTEnabled() const { return config.mqtt.enabled; }

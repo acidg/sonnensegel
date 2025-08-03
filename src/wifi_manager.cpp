@@ -35,6 +35,7 @@ bool WiFiManager::begin() {
 bool WiFiManager::connectToWiFi() {
     const char* ssid = configManager->getWiFiSSID();
     const char* password = configManager->getWiFiPassword();
+    const char* hostname = configManager->getHostname();
     
     if (strlen(ssid) == 0) {
         return false;
@@ -45,6 +46,12 @@ bool WiFiManager::connectToWiFi() {
     // If we're in AP mode, switch to STA+AP mode to keep AP running during connection attempt
     if (currentMode == AWNING_WIFI_AP_FALLBACK) {
         WiFi.mode(WIFI_AP_STA);
+    }
+    
+    // Set hostname before connecting
+    if (strlen(hostname) > 0) {
+        WiFi.setHostname(hostname);
+        Serial.printf("WiFi: Hostname set to '%s'\n", hostname);
     }
     
     WiFi.begin(ssid, password);

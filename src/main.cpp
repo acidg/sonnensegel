@@ -1,4 +1,5 @@
 #include <ESP8266WiFi.h>
+#include <ESP8266mDNS.h>
 #include "pins.h"
 #include "constants.h"
 #include "config_manager.h"
@@ -208,6 +209,20 @@ void loop() {
     static bool mqttInitialized = false;
     
     if (wifiManager.isConnected() && !servicesInitialized) {
+        // Start mDNS service
+        const char* hostname = configManager.getHostname();
+        if (MDNS.begin(hostname)) {
+            Serial.printf("mDNS: Started with hostname '%s.local'\n", hostname);
+            
+            // Add service announcements
+            MDNS.addService("http", "tcp", 80);
+            MDNS.addServiceTxt("http", "tcp", "device", "sonnensegel");
+            MDNS.addServiceTxt("http", "tcp", "version", "1.0");
+            Serial.println("mDNS: HTTP service announced");
+        } else {
+            Serial.println("mDNS: Failed to start");
+        }
+        
         webInterface.begin();
         servicesInitialized = true;
         Serial.println("Web interface initialized");
@@ -222,6 +237,7 @@ void loop() {
             Serial.println("MQTT service initialized");
         }
     } else if (!wifiManager.isConnected() && servicesInitialized) {
+        MDNS.end();
         servicesInitialized = false;
         mqttInitialized = false;
         Serial.println("Network services stopped");
@@ -256,6 +272,7 @@ void loop() {
     
     // Only run network services if connected
     if (servicesInitialized) {
+        MDNS.update();
         webInterface.loop();
         
         // Only run MQTT services if enabled and initialized
