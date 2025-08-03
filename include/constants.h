@@ -22,6 +22,11 @@ const float MAX_POSITION = 100.0;
 const int EEPROM_SIZE = 512;
 const uint32_t EEPROM_MAGIC_VALUE = 0xDEADBEEF;
 
+// Default Settings
+const unsigned long DEFAULT_TRAVEL_TIME_MS = 15000;  // 15 seconds default travel time
+const float DEFAULT_WIND_THRESHOLD = 25.0;   // 25 km/h default wind threshold
+const float DEFAULT_WIND_FACTOR = 2.5;       // Default conversion factor (pulses/sec to km/h)
+
 // Limits
 const unsigned long MIN_TRAVEL_TIME_MS = 5000;
 const unsigned long MAX_TRAVEL_TIME_MS = 300000;

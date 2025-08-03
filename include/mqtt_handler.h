@@ -40,7 +40,7 @@ public:
     void loop();
     void publishState(MotorState motorState, float position);
     void publishWindData(float speed, float threshold, float factor);
-    bool isConnected() const { return mqttClient.connected(); }
+    bool isConnected() { return mqttClient.connected(); }
     void processMessage(char* topic, char* message);
     
     // Callbacks for commands

@@ -45,7 +45,7 @@ void setupWiFi() {
 }
 
 // Wind sensor ISR
-void ICACHE_RAM_ATTR windSensorISR() {
+void IRAM_ATTR windSensorISR() {
     windPulseCount++;
 }
 
