@@ -30,10 +30,10 @@ ESP8266 GPIO Connections:
 │ GPIO12 ─────> Relay 2 (Retract)     │
 │                                     │
 │ GPIO2  <───── Extend Button ──┐     │
-│                              ╧ GND  │
+│                               ╧ GND │
 │                                     │
 │ GPIO4  <───── Retract Button ─┐     │
-│                              ╧ GND  │
+│                               ╧ GND │
 │                                     │
 │ GPIO5  <───── Wind Sensor Pulse     │
 │ GND    <───── Wind Sensor GND       │

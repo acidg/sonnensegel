@@ -130,16 +130,24 @@ void setupMqttCallbacks() {
     };
 }
 
-// Handle button press
-void handleButtonPress(ButtonHandler& button, float targetPosition) {
+// Handle button press - returns true if button was pressed (for priority handling)
+bool handleButtonPress(ButtonHandler& button, float targetPosition) {
     ButtonAction action = button.update();
     
     if (action == BUTTON_SHORT_PRESS) {
         motor.stop();
         positionTracker.setTargetPosition(positionTracker.getCurrentPosition());
+        saveSettings();
+        Serial.println("Button: Emergency stop");
+        return true;
     } else if (action == BUTTON_LONG_PRESS) {
         positionTracker.setTargetPosition(targetPosition);
+        Serial.print("Button: Moving to ");
+        Serial.print(targetPosition);
+        Serial.println("%");
+        return true;
     }
+    return false;
 }
 
 // Check if motor needs to start/stop
@@ -199,10 +207,16 @@ void setup() {
 }
 
 void loop() {
-    handleButtonPress(extendButton, 100.0);
-    handleButtonPress(retractButton, 0.0);
+    // Handle buttons FIRST - they have priority over all other commands
+    bool buttonPressed = false;
+    buttonPressed |= handleButtonPress(extendButton, 100.0);
+    buttonPressed |= handleButtonPress(retractButton, 0.0);
     
-    updateMotorControl();
+    // Skip motor control updates if button was just pressed to avoid conflicts
+    if (!buttonPressed) {
+        updateMotorControl();
+    }
+    
     handleWindSafety();
     
     mqtt.loop();
