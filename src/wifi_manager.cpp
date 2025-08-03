@@ -4,13 +4,16 @@ const char* WiFiManager::AP_SSID = "Sonnensegel";
 const char* WiFiManager::AP_PASSWORD = nullptr;
 
 WiFiManager::WiFiManager(ConfigManager* config) 
-    : configManager(config), configServer(nullptr), currentMode(AWNING_WIFI_CONNECTING),
+    : configManager(config), configServer(nullptr), dnsServer(nullptr), currentMode(AWNING_WIFI_CONNECTING),
       lastConnectionAttempt(0), lastStatusCheck(0), connectionAttempts(0), apStarted(false) {
 }
 
 WiFiManager::~WiFiManager() {
     if (configServer) {
         delete configServer;
+    }
+    if (dnsServer) {
+        delete dnsServer;
     }
 }
 
@@ -67,6 +70,14 @@ void WiFiManager::startAP() {
     if (success) {
         Serial.printf("WiFi: AP started - SSID: %s (open), IP: %s\n", AP_SSID, WiFi.softAPIP().toString().c_str());
         setupConfigServer();
+        
+        // Start DNS server for captive portal
+        if (!dnsServer) {
+            dnsServer = new DNSServer();
+        }
+        dnsServer->start(DNS_PORT, "*", WiFi.softAPIP());
+        Serial.println("WiFi: DNS server started for captive portal");
+        
         currentMode = AWNING_WIFI_AP_FALLBACK;
         apStarted = true;
     } else {
@@ -85,10 +96,16 @@ void WiFiManager::stopAP() {
         configServer = nullptr;
     }
     
+    if (dnsServer) {
+        dnsServer->stop();
+        delete dnsServer;
+        dnsServer = nullptr;
+    }
+    
     WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_STA);
     apStarted = false;
-    Serial.println("WiFi: AP stopped");
+    Serial.println("WiFi: AP and DNS server stopped");
 }
 
 void WiFiManager::setupConfigServer() {
@@ -102,6 +119,9 @@ void WiFiManager::setupConfigServer() {
     configServer->on("/save", HTTP_POST, [this]() { handleConfigSave(); });
     configServer->on("/status", [this]() { handleConfigStatus(); });
     
+    // Captive portal handlers - catch all requests
+    configServer->onNotFound([this]() { handleCaptivePortal(); });
+    
     configServer->begin();
     Serial.println("WiFi: Configuration server started on port 80");
 }
@@ -109,9 +129,14 @@ void WiFiManager::setupConfigServer() {
 void WiFiManager::update() {
     unsigned long now = millis();
     
-    // Handle config server if in AP mode
-    if (configServer && currentMode == AWNING_WIFI_AP_FALLBACK) {
-        configServer->handleClient();
+    // Handle config server and DNS server if in AP mode
+    if (currentMode == AWNING_WIFI_AP_FALLBACK) {
+        if (dnsServer) {
+            dnsServer->processNextRequest();
+        }
+        if (configServer) {
+            configServer->handleClient();
+        }
     }
     
     // Check connection status periodically
@@ -378,6 +403,110 @@ void WiFiManager::handleConfigStatus() {
         <p><strong>SSID:</strong> )rawliteral" + String(configManager->getWiFiSSID()) + R"rawliteral(</p>
         <p>Page refreshes every 5 seconds</p>
         <a href="/">Return to Setup</a>
+    </div>
+</body>
+</html>
+)rawliteral";
+    
+    configServer->send(200, "text/html", html);
+}
+
+bool WiFiManager::isCaptivePortalRequest() {
+    String host = configServer->hostHeader();
+    return !host.equals(WiFi.softAPIP().toString());
+}
+
+void WiFiManager::handleCaptivePortal() {
+    // If this is a captive portal probe or request for unknown domain, redirect to setup
+    if (isCaptivePortalRequest()) {
+        String redirectURL = "http://" + WiFi.softAPIP().toString() + "/";
+        configServer->sendHeader("Location", redirectURL, true);
+        configServer->send(302, "text/plain", "Redirecting to setup...");
+        return;
+    }
+    
+    // For direct IP access, show welcome page with redirect to setup
+    String html = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Awning Controller</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="refresh" content="3;url=/">
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container { 
+            max-width: 400px; 
+            background: rgba(255,255,255,0.1); 
+            padding: 40px; 
+            border-radius: 20px; 
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        h1 { 
+            margin-bottom: 20px; 
+            font-size: 2.5em; 
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        p { 
+            font-size: 1.2em; 
+            margin: 15px 0; 
+            line-height: 1.5;
+        }
+        .wifi-info {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .button {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            margin: 10px;
+            border: 2px solid rgba(255,255,255,0.3);
+            transition: all 0.3s ease;
+        }
+        .button:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+        .icon { font-size: 3em; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">☀️</div>
+        <h1>Sonnensegel</h1>
+        <p>Welcome to the Awning Controller!</p>
+        
+        <div class="wifi-info">
+            <p><strong>Network:</strong> )rawliteral" + String(AP_SSID) + R"rawliteral(</p>
+            <p><strong>IP:</strong> )rawliteral" + WiFi.softAPIP().toString() + R"rawliteral(</p>
+        </div>
+        
+        <p>Configure your WiFi and MQTT settings to get started.</p>
+        
+        <a href="/" class="button">📡 Setup WiFi & MQTT</a>
+        <a href="/status" class="button">📊 Status</a>
+        
+        <p style="font-size: 0.9em; margin-top: 30px; opacity: 0.8;">
+            Redirecting automatically in 3 seconds...
+        </p>
     </div>
 </body>
 </html>

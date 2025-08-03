@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
+#include <DNSServer.h>
 #include "config_manager.h"
 
 enum AwningWiFiMode {
@@ -17,6 +18,7 @@ class WiFiManager {
 private:
     ConfigManager* configManager;
     ESP8266WebServer* configServer;
+    DNSServer* dnsServer;
     AwningWiFiMode currentMode;
     unsigned long lastConnectionAttempt;
     unsigned long lastStatusCheck;
@@ -29,6 +31,7 @@ private:
     static const int MAX_CONNECTION_ATTEMPTS = 3;
     static const char* AP_SSID;
     static const char* AP_PASSWORD;
+    static const byte DNS_PORT = 53;
     
     void startAP();
     void stopAP();
@@ -53,6 +56,8 @@ public:
     void handleConfigRoot();
     void handleConfigSave();
     void handleConfigStatus();
+    void handleCaptivePortal();
+    bool isCaptivePortalRequest();
 };
 
 #endif // WIFI_MANAGER_H
