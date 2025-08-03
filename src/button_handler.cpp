@@ -2,7 +2,7 @@
 
 ButtonHandler::ButtonHandler(uint8_t buttonPin) 
     : pin(buttonPin), lastState(HIGH), currentState(HIGH), 
-      lastDebounceTime(0), pressStartTime(0), longPressHandled(false) {
+      lastDebounceTime(0), pressStartTime(0), longPressHandled(false), shortPressHandled(false) {
 }
 
 void ButtonHandler::begin() {
@@ -17,13 +17,15 @@ void ButtonHandler::updatePressTime() {
     if (currentState == LOW) {
         pressStartTime = millis();
         longPressHandled = false;
+        shortPressHandled = false;
     }
 }
 
 ButtonAction ButtonHandler::checkPressType() {
-    if (currentState == HIGH && !longPressHandled) {
+    if (currentState == HIGH && !longPressHandled && !shortPressHandled) {
         unsigned long pressDuration = millis() - pressStartTime;
         if (pressDuration < BUTTON_LONG_PRESS_MS) {
+            shortPressHandled = true;
             return BUTTON_SHORT_PRESS;
         }
     }

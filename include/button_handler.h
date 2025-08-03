@@ -18,6 +18,7 @@ private:
     unsigned long lastDebounceTime;
     unsigned long pressStartTime;
     bool longPressHandled;
+    bool shortPressHandled;
     
     bool isDebounced() const;
     void updatePressTime();
