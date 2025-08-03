@@ -34,9 +34,14 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
             margin-bottom: 20px;
         }
         .controls {
-            display: grid;
+            display: flex;
             gap: 10px;
             margin-bottom: 20px;
+            justify-content: center;
+        }
+        .controls button {
+            flex: 1;
+            max-width: 150px;
         }
         button {
             padding: 12px 20px;
@@ -61,17 +66,65 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
             background: #FF9800;
             color: white;
         }
-        .position-control {
+        .position-control-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+        .position-slider-row {
+            margin-bottom: 15px;
+        }
+        .position-input-row {
             display: flex;
             align-items: center;
             gap: 10px;
-            margin: 10px 0;
+            justify-content: center;
         }
         .position-slider {
-            flex: 1;
+            width: 100%;
         }
         input[type="range"] {
             width: 100%;
+            height: 40px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        /* Webkit browsers (Chrome, Safari) */
+        input[type="range"]::-webkit-slider-track {
+            width: 100%;
+            height: 8px;
+            background: #ddd;
+            border-radius: 4px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 32px;
+            height: 32px;
+            background: #4CAF50;
+            border-radius: 50%;
+            cursor: pointer;
+            margin-top: -12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        /* Firefox */
+        input[type="range"]::-moz-range-track {
+            width: 100%;
+            height: 8px;
+            background: #ddd;
+            border-radius: 4px;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 32px;
+            height: 32px;
+            background: #4CAF50;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         input[type="number"] {
             width: 80px;
@@ -96,6 +149,39 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
             border-radius: 5px;
             margin: 10px 0;
         }
+        /* Mobile responsive adjustments */
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+                margin: 10px;
+            }
+            h1 {
+                font-size: 1.5em;
+            }
+            button {
+                padding: 12px 20px;
+                font-size: 16px;
+            }
+            input[type="range"] {
+                height: 50px;
+            }
+            input[type="range"]::-webkit-slider-thumb {
+                width: 40px;
+                height: 40px;
+                margin-top: -16px;
+            }
+            input[type="range"]::-moz-range-thumb {
+                width: 40px;
+                height: 40px;
+            }
+            .position-control-section {
+                margin: 15px 0;
+                padding: 15px;
+            }
+            .position-input-row {
+                flex-wrap: wrap;
+            }
+        }
     </style>
 </head>
 <body>
@@ -111,15 +197,20 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
         
         <div class="controls">
             <button class="btn-open" onclick="sendCommand('open')">OPEN</button>
-            <button class="btn-close" onclick="sendCommand('close')">CLOSE</button>
             <button class="btn-stop" onclick="sendCommand('stop')">STOP</button>
+            <button class="btn-close" onclick="sendCommand('close')">CLOSE</button>
         </div>
         
-        <div class="position-control">
-            <label>Position:</label>
-            <input type="range" id="positionSlider" min="0" max="100" value="50" class="position-slider">
-            <input type="number" id="positionValue" min="0" max="100" value="50">%
-            <button onclick="setPosition()">Set</button>
+        <div class="position-control-section">
+            <label style="display: block; margin-bottom: 10px; font-weight: bold;">Set Position:</label>
+            <div class="position-slider-row">
+                <input type="range" id="positionSlider" min="0" max="100" value="50" class="position-slider">
+            </div>
+            <div class="position-input-row">
+                <input type="number" id="positionValue" min="0" max="100" value="50">
+                <span>%</span>
+                <button onclick="setPosition()">Set</button>
+            </div>
         </div>
         
         <div class="config-section">
