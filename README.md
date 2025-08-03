@@ -60,8 +60,7 @@ Motor Controller Connections:
 
 1. Install [PlatformIO](https://platformio.org/install)
 2. Clone this repository
-3. Update WiFi and MQTT settings in `include/config.h`
-4. Build and upload:
+3. Build and upload:
    ```bash
    # Build the project
    pio run
@@ -80,37 +79,12 @@ Motor Controller Connections:
    - PubSubClient
    - ArduinoJson
 3. Copy all files to Arduino project folder
-4. Update WiFi and MQTT settings in `config.h`
-5. Select board: "NodeMCU 1.0 (ESP-12E Module)"
-6. Upload to device
+4. Select board: "NodeMCU 1.0 (ESP-12E Module)"
+5. Upload to device
 
 ## Configuration
 
-### WiFi and MQTT Settings
-
-Edit `include/config.h`:
-
-```cpp
-// WiFi Configuration
-#define WIFI_SSID "your_wifi_ssid"
-#define WIFI_PASSWORD "your_wifi_password"
-
-// MQTT Configuration
-#define MQTT_SERVER "your_mqtt_server"
-#define MQTT_PORT 1883
-#define MQTT_USER "your_mqtt_username"
-#define MQTT_PASSWORD "your_mqtt_password"
-#define MQTT_CLIENT_ID "awning_controller"
-#define MQTT_BASE_TOPIC "home/awning"
-```
-
-### Default Parameters
-
-```cpp
-#define DEFAULT_TRAVEL_TIME_MS 15000  // 15 seconds
-#define DEFAULT_WIND_THRESHOLD 25.0   // 25 km/h
-#define DEFAULT_WIND_FACTOR 2.5       // pulses/sec to km/h
-```
+Configuration is done through the web interface when the device starts. No manual code editing required.
 
 ## Calibration Procedure
 
@@ -194,7 +168,7 @@ When wind speed exceeds the threshold:
 ## Troubleshooting
 
 ### No WiFi Connection
-- Check credentials in config.h
+- Use web interface to configure credentials
 - Verify router settings (2.4GHz network)
 - Buttons continue to work offline
 
