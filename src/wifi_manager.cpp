@@ -355,15 +355,10 @@ void WiFiManager::handleConfigRoot() {
             let html = '';
             networks.forEach(network => {
                 if (network.ssid && network.ssid.trim() !== '') {
-                    const signalBars = getSignalBars(network.rssi);
-                    const isSecure = network.encryption !== 7; // 7 = ENC_TYPE_NONE
-                    
                     html += `
                         <div class="wifi-network" onclick="selectNetwork('${escapeHtml(network.ssid)}')">
                             <div class="wifi-ssid">${escapeHtml(network.ssid)}</div>
                             <div class="wifi-signal">
-                                ${isSecure ? '<span class="wifi-lock">[SECURED]</span>' : ''}
-                                <span class="signal-bars">${signalBars}</span>
                                 <span>${network.rssi} dBm</span>
                             </div>
                         </div>
@@ -379,13 +374,6 @@ void WiFiManager::handleConfigRoot() {
             document.getElementById('wifi-networks').style.display = 'none';
         }
         
-        function getSignalBars(rssi) {
-            if (rssi >= -50) return '[■■■■]';
-            if (rssi >= -60) return '[■■■·]';
-            if (rssi >= -70) return '[■■··]';
-            if (rssi >= -80) return '[■···]';
-            return '[····]';
-        }
         
         function escapeHtml(text) {
             const div = document.createElement('div');
@@ -553,8 +541,7 @@ void WiFiManager::handleWiFiScan() {
             
             json += "{";
             json += "\"ssid\":\"" + WiFi.SSID(i) + "\",";
-            json += "\"rssi\":" + String(WiFi.RSSI(i)) + ",";
-            json += "\"encryption\":" + String(WiFi.encryptionType(i));
+            json += "\"rssi\":" + String(WiFi.RSSI(i));
             json += "}";
         }
     }
