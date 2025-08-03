@@ -3,7 +3,6 @@
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
-#include "config.h"
 #include "motor_controller.h"
 #include "position_tracker.h"
 #include "wind_sensor.h"
@@ -14,6 +13,14 @@ private:
     PubSubClient mqttClient;
     unsigned long lastReconnectAttempt;
     unsigned long lastPublish;
+    
+    // Configuration
+    char server[64];
+    uint16_t port;
+    char username[32];
+    char password[64];
+    char clientId[32];
+    char baseTopic[64];
     
     // Topic buffers
     char stateTopic[128];
@@ -33,7 +40,9 @@ private:
     
 public:
     MqttHandler();
-    void begin();
+    void begin(const char* server, uint16_t port, const char* username, 
+               const char* password, const char* clientId);
+    void setBaseTopic(const char* topic);
     void setCallback(std::function<void(char*, byte*, unsigned int)> callback);
     void loop();
     void publishState(MotorState motorState, float position);

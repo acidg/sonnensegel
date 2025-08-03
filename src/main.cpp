@@ -1,7 +1,8 @@
 #include <ESP8266WiFi.h>
-#include "config.h"
 #include "pins.h"
 #include "constants.h"
+#include "config_manager.h"
+#include "wifi_manager.h"
 #include "button_handler.h"
 #include "motor_controller.h"
 #include "position_tracker.h"
@@ -11,6 +12,8 @@
 #include "web_interface.h"
 
 // Global objects
+ConfigManager configManager;
+WiFiManager wifiManager(&configManager);
 ButtonHandler extendButton(BUTTON_EXTEND);
 ButtonHandler retractButton(BUTTON_RETRACT);
 MotorController motor;
@@ -19,31 +22,16 @@ volatile unsigned long windPulseCount = 0;
 WindSensor windSensor(&windPulseCount);
 MqttHandler mqtt;
 Storage storage;
-WebInterface webInterface;
+WebInterface webInterface(&configManager);
 
-// WiFi setup
-void setupWiFi() {
-    delay(10);
-    Serial.println();
-    Serial.print("Connecting to ");
-    Serial.println(WIFI_SSID);
-    
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    
-    unsigned long startTime = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - startTime < 30000) {
-        delay(500);
-        Serial.print(".");
+// Initialize configuration
+void initializeConfig() {
+    if (!configManager.begin()) {
+        Serial.println("Config: Using defaults");
     }
     
-    if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("\nWiFi connected");
-        Serial.print("IP address: ");
-        Serial.println(WiFi.localIP());
-    } else {
-        Serial.println("\nWiFi connection failed - continuing without network");
-    }
+    // Initialize WiFi manager
+    wifiManager.begin();
 }
 
 // Wind sensor ISR
@@ -62,32 +50,27 @@ void initializeComponents() {
     attachInterrupt(digitalPinToInterrupt(WIND_SENSOR_PIN), windSensorISR, FALLING);
 }
 
-// Load settings from storage
+// Load settings from configuration
 void loadSettings() {
-    StorageData data = storage.load();
-    
-    positionTracker.setCurrentPosition(data.position);
-    positionTracker.setTargetPosition(data.position);
-    positionTracker.setTravelTime(data.travelTime);
-    windSensor.setThreshold(data.windThreshold);
+    positionTracker.setCurrentPosition(configManager.getCurrentPosition());
+    positionTracker.setTargetPosition(configManager.getTargetPosition());
+    positionTracker.setTravelTime(configManager.getTravelTime());
+    windSensor.setThreshold(configManager.getWindThreshold());
     
     Serial.print("Loaded - Position: ");
-    Serial.print(data.position);
+    Serial.print(configManager.getCurrentPosition());
     Serial.print("%, Travel time: ");
-    Serial.print(data.travelTime);
+    Serial.print(configManager.getTravelTime());
     Serial.print("ms, Wind threshold: ");
-    Serial.print(data.windThreshold);
+    Serial.print(configManager.getWindThreshold());
     Serial.println(" pulses/min");
 }
 
 // Save current settings
 void saveSettings() {
-    StorageData data = {
-        .position = positionTracker.getCurrentPosition(),
-        .travelTime = positionTracker.getTravelTime(),
-        .windThreshold = windSensor.getThreshold()
-    };
-    storage.save(data);
+    configManager.setCurrentPosition(positionTracker.getCurrentPosition());
+    configManager.setTargetPosition(positionTracker.getTargetPosition());
+    configManager.save();
 }
 
 // Setup MQTT callbacks
@@ -190,19 +173,34 @@ void setup() {
     Serial.begin(115200);
     Serial.println("\nESP8266 Awning Controller Starting...");
     
+    initializeConfig();
     initializeComponents();
     loadSettings();
-    setupWiFi();
     
-    mqtt.begin();
     setupMqttCallbacks();
-    
-    webInterface.begin();
     
     Serial.println("Setup complete!");
 }
 
 void loop() {
+    // Update WiFi manager (handles connection, fallback, config portal)
+    wifiManager.update();
+    
+    // Initialize services when WiFi becomes available
+    static bool servicesInitialized = false;
+    if (wifiManager.isConnected() && !servicesInitialized) {
+        mqtt.begin(configManager.getMQTTServer(), configManager.getMQTTPort(), 
+                  configManager.getMQTTUsername(), configManager.getMQTTPassword(),
+                  configManager.getMQTTClientId());
+        mqtt.setBaseTopic(configManager.getMQTTBaseTopic());
+        webInterface.begin();
+        servicesInitialized = true;
+        Serial.println("Network services initialized");
+    } else if (!wifiManager.isConnected() && servicesInitialized) {
+        servicesInitialized = false;
+        Serial.println("Network services stopped");
+    }
+    
     // Handle buttons FIRST - they have priority over all other commands
     bool buttonPressed = false;
     buttonPressed |= handleButtonPress(extendButton, 100.0);
@@ -215,9 +213,12 @@ void loop() {
     
     handleWindSafety();
     
-    mqtt.loop();
-    webInterface.loop();
-    publishState();
+    // Only run network services if connected
+    if (servicesInitialized) {
+        mqtt.loop();
+        webInterface.loop();
+        publishState();
+    }
     
     yield();
 }

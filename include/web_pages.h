@@ -140,6 +140,10 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
                 <input type="number" id="windThreshold" min="0" max="1000" value="100"> pulses/min
                 <button class="btn-config" onclick="setWindThreshold()">Set</button>
             </div>
+            
+            <div class="form-group" style="text-align: center; margin-top: 20px;">
+                <button class="btn-config" onclick="window.location.href='/system-config'">System Configuration</button>
+            </div>
         </div>
     </div>
 

@@ -3,27 +3,49 @@
 MqttHandler* mqttHandlerInstance = nullptr;
 
 MqttHandler::MqttHandler() 
-    : mqttClient(wifiClient), lastReconnectAttempt(0), lastPublish(0) {
+    : mqttClient(wifiClient), lastReconnectAttempt(0), lastPublish(0), port(1883) {
     mqttHandlerInstance = this;
+    strcpy(server, "");
+    strcpy(username, "");
+    strcpy(password, "");
+    strcpy(clientId, "awning_controller");
+    strcpy(baseTopic, "home/awning");
 }
 
 void MqttHandler::buildTopics() {
-    snprintf(stateTopic, sizeof(stateTopic), "%s/state", MQTT_BASE_TOPIC);
-    snprintf(commandTopic, sizeof(commandTopic), "%s/set", MQTT_BASE_TOPIC);
-    snprintf(positionTopic, sizeof(positionTopic), "%s/position", MQTT_BASE_TOPIC);
-    snprintf(setPositionTopic, sizeof(setPositionTopic), "%s/set_position", MQTT_BASE_TOPIC);
-    snprintf(availabilityTopic, sizeof(availabilityTopic), "%s/availability", MQTT_BASE_TOPIC);
-    snprintf(windPulsesTopic, sizeof(windPulsesTopic), "%s/wind_pulses", MQTT_BASE_TOPIC);
-    snprintf(windThresholdTopic, sizeof(windThresholdTopic), "%s/wind_threshold", MQTT_BASE_TOPIC);
-    snprintf(setWindThresholdTopic, sizeof(setWindThresholdTopic), "%s/set_wind_threshold", MQTT_BASE_TOPIC);
-    snprintf(calibrateTopic, sizeof(calibrateTopic), "%s/calibrate", MQTT_BASE_TOPIC);
+    snprintf(stateTopic, sizeof(stateTopic), "%s/state", baseTopic);
+    snprintf(commandTopic, sizeof(commandTopic), "%s/set", baseTopic);
+    snprintf(positionTopic, sizeof(positionTopic), "%s/position", baseTopic);
+    snprintf(setPositionTopic, sizeof(setPositionTopic), "%s/set_position", baseTopic);
+    snprintf(availabilityTopic, sizeof(availabilityTopic), "%s/availability", baseTopic);
+    snprintf(windPulsesTopic, sizeof(windPulsesTopic), "%s/wind_pulses", baseTopic);
+    snprintf(windThresholdTopic, sizeof(windThresholdTopic), "%s/wind_threshold", baseTopic);
+    snprintf(setWindThresholdTopic, sizeof(setWindThresholdTopic), "%s/set_wind_threshold", baseTopic);
+    snprintf(calibrateTopic, sizeof(calibrateTopic), "%s/calibrate", baseTopic);
 }
 
-void MqttHandler::begin() {
+void MqttHandler::begin(const char* srv, uint16_t prt, const char* user, 
+                       const char* pass, const char* cid) {
+    strncpy(server, srv, sizeof(server) - 1);
+    server[sizeof(server) - 1] = '\0';
+    port = prt;
+    strncpy(username, user, sizeof(username) - 1);
+    username[sizeof(username) - 1] = '\0';
+    strncpy(password, pass, sizeof(password) - 1);
+    password[sizeof(password) - 1] = '\0';
+    strncpy(clientId, cid, sizeof(clientId) - 1);
+    clientId[sizeof(clientId) - 1] = '\0';
+    
     buildTopics();
-    mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
+    mqttClient.setServer(server, port);
     mqttClient.setCallback(staticCallback);
     mqttClient.setBufferSize(512);
+}
+
+void MqttHandler::setBaseTopic(const char* topic) {
+    strncpy(baseTopic, topic, sizeof(baseTopic) - 1);
+    baseTopic[sizeof(baseTopic) - 1] = '\0';
+    buildTopics();
 }
 
 void MqttHandler::staticCallback(char* topic, byte* payload, unsigned int length) {
@@ -56,8 +78,15 @@ bool MqttHandler::reconnect() {
     
     Serial.print("Attempting MQTT connection...");
     
-    if (!mqttClient.connect(MQTT_CLIENT_ID, MQTT_USER, MQTT_PASSWORD, 
-                          availabilityTopic, 0, true, "offline")) {
+    bool connected;
+    if (strlen(username) > 0) {
+        connected = mqttClient.connect(clientId, username, password, 
+                                     availabilityTopic, 0, true, "offline");
+    } else {
+        connected = mqttClient.connect(clientId, availabilityTopic, 0, true, "offline");
+    }
+    
+    if (!connected) {
         Serial.print("failed, rc=");
         Serial.println(mqttClient.state());
         return false;

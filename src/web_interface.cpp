@@ -12,7 +12,7 @@ extern PositionTracker positionTracker;
 extern WindSensor windSensor;
 extern void saveSettings();
 
-WebInterface::WebInterface() : server(80) {
+WebInterface::WebInterface(ConfigManager* config) : server(80), configManager(config) {
 }
 
 void WebInterface::begin() {
@@ -27,6 +27,8 @@ void WebInterface::begin() {
     server.on("/status", HTTP_GET, [this](){ handleStatus(); });
     server.on("/calibrate", HTTP_POST, [this](){ handleCalibrate(); });
     server.on("/wind-config", HTTP_POST, [this](){ handleWindConfig(); });
+    server.on("/system-config", HTTP_GET, [this](){ handleSystemConfig(); });
+    server.on("/system-config", HTTP_POST, [this](){ handleSystemConfigSave(); });
     server.onNotFound([this](){ handleNotFound(); });
     
     server.begin();
@@ -99,8 +101,9 @@ void WebInterface::handleCalibrate() {
         return;
     }
     
+    configManager->setTravelTime(travelTime);
     positionTracker.setTravelTime(travelTime);
-    saveSettings();
+    configManager->save();
     
     Serial.print("Web: Travel time calibrated to ");
     Serial.print(travelTime);
@@ -115,6 +118,7 @@ void WebInterface::handleWindConfig() {
     if (server.hasArg("threshold")) {
         unsigned long threshold = server.arg("threshold").toInt();
         if (threshold >= MIN_WIND_PULSE_THRESHOLD && threshold <= MAX_WIND_PULSE_THRESHOLD) {
+            configManager->setWindThreshold(threshold);
             windSensor.setThreshold(threshold);
             updated = true;
             Serial.print("Web: Wind threshold set to ");
@@ -124,11 +128,180 @@ void WebInterface::handleWindConfig() {
     }
     
     if (updated) {
-        saveSettings();
+        configManager->save();
         server.send(200, "text/plain", "OK");
     } else {
         server.send(400, "text/plain", "No valid parameters provided");
     }
+}
+
+void WebInterface::handleSystemConfig() {
+    String html = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+    <title>System Configuration</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f0f0f0; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }
+        h1 { color: #333; text-align: center; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .form-group { margin: 10px 0; }
+        label { display: inline-block; width: 150px; font-weight: bold; }
+        input[type="text"], input[type="password"], input[type="number"] { 
+            width: 200px; padding: 5px; border: 1px solid #ddd; border-radius: 4px; 
+        }
+        button { 
+            background: #FF9800; color: white; padding: 8px 16px; 
+            border: none; border-radius: 4px; cursor: pointer; margin: 5px; 
+        }
+        button:hover { background: #F57C00; }
+        .nav { text-align: center; margin-bottom: 20px; }
+        .nav a { margin: 0 10px; color: #2196F3; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav">
+            <a href="/">← Back to Control</a>
+        </div>
+        
+        <h1>System Configuration</h1>
+        
+        <form method="POST" action="/system-config">
+            <div class="section">
+                <h3>WiFi Settings</h3>
+                <div class="form-group">
+                    <label>WiFi SSID:</label>
+                    <input type="text" name="wifi_ssid" value=")rawliteral" + 
+                    String(configManager->getWiFiSSID()) + R"rawliteral(">
+                </div>
+                <div class="form-group">
+                    <label>WiFi Password:</label>
+                    <input type="password" name="wifi_password" placeholder="Enter new password">
+                </div>
+            </div>
+            
+            <div class="section">
+                <h3>MQTT Settings</h3>
+                <div class="form-group">
+                    <label>MQTT Server:</label>
+                    <input type="text" name="mqtt_server" value=")rawliteral" + 
+                    String(configManager->getMQTTServer()) + R"rawliteral(">
+                </div>
+                <div class="form-group">
+                    <label>MQTT Port:</label>
+                    <input type="number" name="mqtt_port" value=")rawliteral" + 
+                    String(configManager->getMQTTPort()) + R"rawliteral(">
+                </div>
+                <div class="form-group">
+                    <label>MQTT Username:</label>
+                    <input type="text" name="mqtt_username" value=")rawliteral" + 
+                    String(configManager->getMQTTUsername()) + R"rawliteral(">
+                </div>
+                <div class="form-group">
+                    <label>MQTT Password:</label>
+                    <input type="password" name="mqtt_password" placeholder="Enter new password">
+                </div>
+                <div class="form-group">
+                    <label>Client ID:</label>
+                    <input type="text" name="mqtt_client_id" value=")rawliteral" + 
+                    String(configManager->getMQTTClientId()) + R"rawliteral(">
+                </div>
+                <div class="form-group">
+                    <label>Base Topic:</label>
+                    <input type="text" name="mqtt_base_topic" value=")rawliteral" + 
+                    String(configManager->getMQTTBaseTopic()) + R"rawliteral(">
+                </div>
+            </div>
+            
+            <div style="text-align: center;">
+                <button type="submit">Save Configuration</button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>
+)rawliteral";
+    
+    server.send(200, "text/html", html);
+}
+
+void WebInterface::handleSystemConfigSave() {
+    bool wifiChanged = false;
+    bool mqttChanged = false;
+    
+    // Handle WiFi settings
+    if (server.hasArg("wifi_ssid")) {
+        String currentSSID = configManager->getWiFiSSID();
+        String newSSID = server.arg("wifi_ssid");
+        String newPassword = server.arg("wifi_password");
+        
+        if (newSSID != currentSSID || newPassword.length() > 0) {
+            const char* password = newPassword.length() > 0 ? newPassword.c_str() : configManager->getWiFiPassword();
+            configManager->setWiFiCredentials(newSSID.c_str(), password);
+            wifiChanged = true;
+        }
+    }
+    
+    // Handle MQTT settings
+    if (server.hasArg("mqtt_server")) {
+        String server_addr = server.arg("mqtt_server");
+        uint16_t port = server.arg("mqtt_port").toInt();
+        String username = server.arg("mqtt_username");
+        String password = server.arg("mqtt_password");
+        String clientId = server.arg("mqtt_client_id");
+        String baseTopic = server.arg("mqtt_base_topic");
+        
+        const char* mqttPassword = password.length() > 0 ? password.c_str() : configManager->getMQTTPassword();
+        
+        configManager->setMQTTConfig(server_addr.c_str(), port, username.c_str(), 
+                                   mqttPassword, clientId.c_str(), baseTopic.c_str());
+        mqttChanged = true;
+    }
+    
+    // Save configuration
+    bool success = configManager->save();
+    
+    String response = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Configuration Updated</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="refresh" content="3;url=/">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f0f0f0; text-align: center; }
+        .container { max-width: 400px; margin: 50px auto; background: white; padding: 30px; border-radius: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Configuration Updated!</h1>
+        <p>)rawliteral";
+    
+    if (success) {
+        response += "Settings have been saved successfully.";
+        if (wifiChanged) {
+            response += "<br><strong>Note:</strong> WiFi settings changed. Device may restart to apply new settings.";
+        }
+        if (mqttChanged) {
+            response += "<br><strong>Note:</strong> MQTT settings changed. Connection will be reestablished.";
+        }
+    } else {
+        response += "Error saving configuration. Please try again.";
+    }
+    
+    response += R"rawliteral(</p>
+        <p>Redirecting to main page...</p>
+        <a href="/">Return to Control Panel</a>
+    </div>
+</body>
+</html>
+)rawliteral";
+    
+    server.send(200, "text/html", response);
 }
 
 void WebInterface::handleNotFound() {
