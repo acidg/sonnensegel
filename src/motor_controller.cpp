@@ -66,6 +66,11 @@ void MotorController::startWithoutStop(MotorState direction) {
 }
 
 void MotorController::stop(bool sendStopPulse) {
+    // Always send stop pulse when requested, even if already idle
+    if (sendStopPulse) {
+        sendPulse(RELAY_EXTEND, MOTOR_STOP_PULSE_MS);
+    }
+    
     if (state == MOTOR_IDLE) {
         return;
     }
@@ -75,10 +80,6 @@ void MotorController::stop(bool sendStopPulse) {
     if (isRelayActive()) {
         deactivateRelays();
         delay(100);
-    }
-    
-    if (sendStopPulse) {
-        sendPulse(RELAY_EXTEND, MOTOR_STOP_PULSE_MS);
     }
     
     state = MOTOR_IDLE;
