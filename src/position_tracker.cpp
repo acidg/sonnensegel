@@ -59,11 +59,28 @@ void PositionTracker::update(MotorState motorState) {
 }
 
 bool PositionTracker::shouldStop(MotorState motorState) const {
-    return hasReachedTarget() || hasReachedLimit(motorState);
+    if (hasReachedTarget()) {
+        return true;
+    }
+    
+    // Only stop at limits if target is exactly at the limit
+    // This allows drift compensation when target extends beyond limits
+    if (hasReachedLimit(motorState)) {
+        if (motorState == MOTOR_EXTENDING && targetPosition >= MAX_POSITION) {
+            return true;
+        }
+        if (motorState == MOTOR_RETRACTING && targetPosition <= MIN_POSITION) {
+            return true;
+        }
+    }
+    
+    return false;
 }
 
 bool PositionTracker::isStoppingAtLimit(MotorState motorState) const {
-    return hasReachedLimit(motorState);
+    // Return true when target is exactly at limits (0% or 100%)
+    // This prevents sending stop pulse for drift compensation
+    return (targetPosition >= MAX_POSITION) || (targetPosition <= MIN_POSITION);
 }
 
 MotorState PositionTracker::getRequiredDirection() const {
