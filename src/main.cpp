@@ -8,6 +8,7 @@
 #include "wind_sensor.h"
 #include "mqtt_handler.h"
 #include "storage.h"
+#include "web_interface.h"
 
 // Global objects
 ButtonHandler extendButton(BUTTON_EXTEND);
@@ -18,6 +19,7 @@ volatile unsigned long windPulseCount = 0;
 WindSensor windSensor(&windPulseCount);
 MqttHandler mqtt;
 Storage storage;
+WebInterface webInterface;
 
 // WiFi setup
 void setupWiFi() {
@@ -203,6 +205,8 @@ void setup() {
     mqtt.begin();
     setupMqttCallbacks();
     
+    webInterface.begin();
+    
     Serial.println("Setup complete!");
 }
 
@@ -220,6 +224,7 @@ void loop() {
     handleWindSafety();
     
     mqtt.loop();
+    webInterface.loop();
     publishState();
     
     yield();
