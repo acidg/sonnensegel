@@ -36,7 +36,14 @@ void initializeConfig() {
 
 // Wind sensor ISR
 void IRAM_ATTR windSensorISR() {
-    windPulseCount++;
+    static unsigned long lastPulseTime = 0;
+    unsigned long now = millis();
+    
+    // Debounce: only count if enough time has passed since last pulse
+    if (now - lastPulseTime >= WIND_SENSOR_DEBOUNCE_MS) {
+        windPulseCount++;
+        lastPulseTime = now;
+    }
 }
 
 // Helper function to set new target (allows motor controller to handle direction changes)
@@ -104,13 +111,6 @@ void setupMqttCallbacks() {
         setTargetPositionWithInterrupt(position, "MQTT");
     };
     
-    mqtt.onCalibrate = [](unsigned long travelTime) {
-        positionTracker.setTravelTime(travelTime);
-        saveSettings();
-        Serial.print("Travel time calibrated to: ");
-        Serial.print(travelTime);
-        Serial.println(" ms");
-    };
     
     mqtt.onSetWindThreshold = [](float threshold) {
         windSensor.setThreshold((unsigned long)threshold);
