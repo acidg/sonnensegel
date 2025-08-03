@@ -105,7 +105,7 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
         <div class="status" id="status">
             <div><strong>Position:</strong> <span id="position">--%</span></div>
             <div><strong>Motor:</strong> <span id="motor">--</span></div>
-            <div><strong>Wind Speed:</strong> <span id="windSpeed">-- km/h</span></div>
+            <div><strong>Wind Pulses:</strong> <span id="windPulses">-- /min</span></div>
             <div><strong>Target:</strong> <span id="target">--%</span></div>
         </div>
         
@@ -132,19 +132,13 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
             </div>
             
             <div class="wind-info">
-                <strong>Wind Safety:</strong> Awning will automatically close if wind speed exceeds threshold
+                <strong>Wind Safety:</strong> Awning will automatically close if pulse count exceeds threshold
             </div>
             
             <div class="form-group">
                 <label>Wind Threshold:</label>
-                <input type="number" id="windThreshold" min="0" max="100" value="25" step="0.1"> km/h
+                <input type="number" id="windThreshold" min="0" max="1000" value="100"> pulses/min
                 <button class="btn-config" onclick="setWindThreshold()">Set</button>
-            </div>
-            
-            <div class="form-group">
-                <label>Wind Factor:</label>
-                <input type="number" id="windFactor" min="0.1" max="10" value="2.4" step="0.1">
-                <button class="btn-config" onclick="setWindFactor()">Set</button>
             </div>
         </div>
     </div>
@@ -206,18 +200,6 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
             }).catch(err => alert('Error: ' + err.message));
         }
         
-        function setWindFactor() {
-            const factor = document.getElementById('windFactor').value;
-            fetch('/wind-config', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: 'factor=' + factor
-            }).then(response => {
-                if (!response.ok) throw new Error('Wind factor update failed');
-                alert('Wind factor updated');
-                updateStatus();
-            }).catch(err => alert('Error: ' + err.message));
-        }
         
         function updateStatus() {
             fetch('/status')
@@ -226,12 +208,11 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
                     document.getElementById('position').textContent = data.position.toFixed(1) + '%';
                     document.getElementById('target').textContent = data.target.toFixed(1) + '%';
                     document.getElementById('motor').textContent = data.motor;
-                    document.getElementById('windSpeed').textContent = data.windSpeed.toFixed(1) + ' km/h';
+                    document.getElementById('windPulses').textContent = data.windPulses + ' /min';
                     
                     // Update form values
                     document.getElementById('travelTime').value = data.travelTime;
                     document.getElementById('windThreshold').value = data.windThreshold;
-                    document.getElementById('windFactor').value = data.windFactor;
                 })
                 .catch(err => console.error('Status update failed:', err));
         }

@@ -13,12 +13,10 @@ void MqttHandler::buildTopics() {
     snprintf(positionTopic, sizeof(positionTopic), "%s/position", MQTT_BASE_TOPIC);
     snprintf(setPositionTopic, sizeof(setPositionTopic), "%s/set_position", MQTT_BASE_TOPIC);
     snprintf(availabilityTopic, sizeof(availabilityTopic), "%s/availability", MQTT_BASE_TOPIC);
-    snprintf(windSpeedTopic, sizeof(windSpeedTopic), "%s/wind_speed", MQTT_BASE_TOPIC);
+    snprintf(windPulsesTopic, sizeof(windPulsesTopic), "%s/wind_pulses", MQTT_BASE_TOPIC);
     snprintf(windThresholdTopic, sizeof(windThresholdTopic), "%s/wind_threshold", MQTT_BASE_TOPIC);
     snprintf(setWindThresholdTopic, sizeof(setWindThresholdTopic), "%s/set_wind_threshold", MQTT_BASE_TOPIC);
     snprintf(calibrateTopic, sizeof(calibrateTopic), "%s/calibrate", MQTT_BASE_TOPIC);
-    snprintf(windFactorTopic, sizeof(windFactorTopic), "%s/wind_factor", MQTT_BASE_TOPIC);
-    snprintf(setWindFactorTopic, sizeof(setWindFactorTopic), "%s/set_wind_factor", MQTT_BASE_TOPIC);
 }
 
 void MqttHandler::begin() {
@@ -42,7 +40,6 @@ void MqttHandler::subscribe() {
     mqttClient.subscribe(setPositionTopic);
     mqttClient.subscribe(calibrateTopic);
     mqttClient.subscribe(setWindThresholdTopic);
-    mqttClient.subscribe(setWindFactorTopic);
 }
 
 bool MqttHandler::reconnect() {
@@ -108,22 +105,18 @@ void MqttHandler::publishState(MotorState motorState, float position) {
     mqttClient.publish(positionTopic, positionStr, true);
 }
 
-void MqttHandler::publishWindData(float speed, float threshold, float factor) {
+void MqttHandler::publishWindData(unsigned long pulses, unsigned long threshold) {
     if (!isConnected()) {
         return;
     }
     
-    char speedStr[10];
-    dtostrf(speed, 4, 1, speedStr);
-    mqttClient.publish(windSpeedTopic, speedStr, true);
+    char pulsesStr[10];
+    sprintf(pulsesStr, "%lu", pulses);
+    mqttClient.publish(windPulsesTopic, pulsesStr, true);
     
     char thresholdStr[10];
-    dtostrf(threshold, 4, 1, thresholdStr);
+    sprintf(thresholdStr, "%lu", threshold);
     mqttClient.publish(windThresholdTopic, thresholdStr, true);
-    
-    char factorStr[10];
-    dtostrf(factor, 4, 2, factorStr);
-    mqttClient.publish(windFactorTopic, factorStr, true);
 }
 
 void MqttHandler::processMessage(char* topic, char* message) {
@@ -143,8 +136,5 @@ void MqttHandler::processMessage(char* topic, char* message) {
     } else if (strcmp(topic, setWindThresholdTopic) == 0 && onSetWindThreshold) {
         float threshold = atof(message);
         onSetWindThreshold(threshold);
-    } else if (strcmp(topic, setWindFactorTopic) == 0 && onSetWindFactor) {
-        float factor = atof(message);
-        onSetWindFactor(factor);
     }
 }

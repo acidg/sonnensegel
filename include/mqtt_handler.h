@@ -21,12 +21,10 @@ private:
     char positionTopic[128];
     char setPositionTopic[128];
     char availabilityTopic[128];
-    char windSpeedTopic[128];
+    char windPulsesTopic[128];
     char windThresholdTopic[128];
     char setWindThresholdTopic[128];
     char calibrateTopic[128];
-    char windFactorTopic[128];
-    char setWindFactorTopic[128];
     
     void buildTopics();
     bool reconnect();
@@ -39,7 +37,7 @@ public:
     void setCallback(std::function<void(char*, byte*, unsigned int)> callback);
     void loop();
     void publishState(MotorState motorState, float position);
-    void publishWindData(float speed, float threshold, float factor);
+    void publishWindData(unsigned long pulses, unsigned long threshold);
     bool isConnected() { return mqttClient.connected(); }
     void processMessage(char* topic, char* message);
     
@@ -48,7 +46,6 @@ public:
     std::function<void(float)> onSetPosition;
     std::function<void(unsigned long)> onCalibrate;
     std::function<void(float)> onSetWindThreshold;
-    std::function<void(float)> onSetWindFactor;
 };
 
 // Global instance for static callback

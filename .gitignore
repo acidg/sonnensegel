@@ -31,3 +31,5 @@ config_local.h
 # Mosquitto data
 mosquitto/data/
 mosquitto/log/
+
+homeassistant.yaml

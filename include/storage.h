@@ -8,8 +8,7 @@
 struct StorageData {
     float position;
     unsigned long travelTime;
-    float windThreshold;
-    float windFactor;
+    unsigned long windThreshold;
 };
 
 class Storage {
@@ -17,8 +16,7 @@ private:
     static const int POSITION_ADDR = 0;
     static const int TRAVEL_TIME_ADDR = 4;
     static const int WIND_THRESHOLD_ADDR = 8;
-    static const int WIND_FACTOR_ADDR = 12;
-    static const int MAGIC_ADDR = 16;
+    static const int MAGIC_ADDR = 12;
     
     bool isValidData() const;
     void writeDefaults();

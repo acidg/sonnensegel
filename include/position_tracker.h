@@ -27,6 +27,7 @@ public:
     float getTargetPosition() const { return targetPosition; }
     unsigned long getTravelTime() const { return travelTimeMs; }
     bool shouldStop(MotorState motorState) const;
+    bool isStoppingAtLimit(MotorState motorState) const;
     MotorState getRequiredDirection() const;
 };
 

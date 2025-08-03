@@ -2,14 +2,14 @@
 #define CONFIG_H
 
 // WiFi Configuration
-#define WIFI_SSID "your_wifi_ssid"
-#define WIFI_PASSWORD "your_wifi_password"
+#define WIFI_SSID "WLAN haben wir nicht"
+#define WIFI_PASSWORD "Hast dus gefunden?"
 
 // MQTT Configuration
-#define MQTT_SERVER "your_mqtt_server"
+#define MQTT_SERVER "192.168.12.20"
 #define MQTT_PORT 1883
-#define MQTT_USER "your_mqtt_username"
-#define MQTT_PASSWORD "your_mqtt_password"
+#define MQTT_USER ""
+#define MQTT_PASSWORD ""
 #define MQTT_CLIENT_ID "awning_controller"
 #define MQTT_BASE_TOPIC "home/awning"
 

@@ -113,22 +113,13 @@ void WebInterface::handleWindConfig() {
     bool updated = false;
     
     if (server.hasArg("threshold")) {
-        float threshold = server.arg("threshold").toFloat();
-        if (threshold >= 0.0 && threshold <= 100.0) {
+        unsigned long threshold = server.arg("threshold").toInt();
+        if (threshold >= MIN_WIND_PULSE_THRESHOLD && threshold <= MAX_WIND_PULSE_THRESHOLD) {
             windSensor.setThreshold(threshold);
             updated = true;
             Serial.print("Web: Wind threshold set to ");
-            Serial.println(threshold);
-        }
-    }
-    
-    if (server.hasArg("factor")) {
-        float factor = server.arg("factor").toFloat();
-        if (factor > 0.0 && factor <= 10.0) {
-            windSensor.setConversionFactor(factor);
-            updated = true;
-            Serial.print("Web: Wind factor set to ");
-            Serial.println(factor);
+            Serial.print(threshold);
+            Serial.println(" pulses/min");
         }
     }
     
@@ -151,9 +142,8 @@ String WebInterface::getStatusJson() {
     doc["position"] = positionTracker.getCurrentPosition();
     doc["target"] = positionTracker.getTargetPosition();
     doc["travelTime"] = positionTracker.getTravelTime();
-    doc["windSpeed"] = windSensor.getCurrentSpeed();
+    doc["windPulses"] = windSensor.getPulsesPerMinute();
     doc["windThreshold"] = windSensor.getThreshold();
-    doc["windFactor"] = windSensor.getConversionFactor();
     
     // Motor state as string
     switch (motor.getState()) {

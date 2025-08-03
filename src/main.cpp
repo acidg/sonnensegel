@@ -70,7 +70,6 @@ void loadSettings() {
     positionTracker.setTargetPosition(data.position);
     positionTracker.setTravelTime(data.travelTime);
     windSensor.setThreshold(data.windThreshold);
-    windSensor.setConversionFactor(data.windFactor);
     
     Serial.print("Loaded - Position: ");
     Serial.print(data.position);
@@ -78,7 +77,7 @@ void loadSettings() {
     Serial.print(data.travelTime);
     Serial.print("ms, Wind threshold: ");
     Serial.print(data.windThreshold);
-    Serial.println(" km/h");
+    Serial.println(" pulses/min");
 }
 
 // Save current settings
@@ -86,8 +85,7 @@ void saveSettings() {
     StorageData data = {
         .position = positionTracker.getCurrentPosition(),
         .travelTime = positionTracker.getTravelTime(),
-        .windThreshold = windSensor.getThreshold(),
-        .windFactor = windSensor.getConversionFactor()
+        .windThreshold = windSensor.getThreshold()
     };
     storage.save(data);
 }
@@ -118,17 +116,11 @@ void setupMqttCallbacks() {
     };
     
     mqtt.onSetWindThreshold = [](float threshold) {
-        windSensor.setThreshold(threshold);
+        windSensor.setThreshold((unsigned long)threshold);
         saveSettings();
         Serial.print("Wind threshold set to: ");
-        Serial.println(threshold);
-    };
-    
-    mqtt.onSetWindFactor = [](float factor) {
-        windSensor.setConversionFactor(factor);
-        saveSettings();
-        Serial.print("Wind conversion factor set to: ");
-        Serial.println(factor);
+        Serial.print((unsigned long)threshold);
+        Serial.println(" pulses/min");
     };
 }
 
@@ -157,7 +149,8 @@ void updateMotorControl() {
     positionTracker.update(motor.getState());
     
     if (motor.isMoving() && positionTracker.shouldStop(motor.getState())) {
-        motor.stop();
+        bool stoppingAtLimit = positionTracker.isStoppingAtLimit(motor.getState());
+        motor.stop(!stoppingAtLimit);
         saveSettings();
         return;
     }
@@ -187,9 +180,8 @@ void publishState() {
     
     if (now - lastPublish >= 5000) {
         mqtt.publishState(motor.getState(), positionTracker.getCurrentPosition());
-        mqtt.publishWindData(windSensor.getCurrentSpeed(), 
-                           windSensor.getThreshold(), 
-                           windSensor.getConversionFactor());
+        mqtt.publishWindData(windSensor.getPulsesPerMinute(), 
+                           windSensor.getThreshold());
         lastPublish = now;
     }
 }

@@ -47,7 +47,7 @@ void MotorController::start(MotorState direction) {
     motorStartTime = millis();
 }
 
-void MotorController::stop() {
+void MotorController::stop(bool sendStopPulse) {
     if (state == MOTOR_IDLE) {
         return;
     }
@@ -59,7 +59,10 @@ void MotorController::stop() {
         delay(100);
     }
     
-    sendPulse(RELAY_EXTEND, MOTOR_STOP_PULSE_MS);
+    if (sendStopPulse) {
+        sendPulse(RELAY_EXTEND, MOTOR_STOP_PULSE_MS);
+    }
+    
     state = MOTOR_IDLE;
 }
 

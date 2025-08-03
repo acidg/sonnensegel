@@ -25,7 +25,7 @@ public:
     MotorController();
     void begin();
     void start(MotorState direction);
-    void stop();
+    void stop(bool sendStopPulse = true);
     MotorState getState() const { return state; }
     unsigned long getRunTime() const;
     bool isMoving() const { return state == MOTOR_EXTENDING || state == MOTOR_RETRACTING; }

@@ -8,8 +8,6 @@ const unsigned long BUTTON_DEBOUNCE_MS = 50;
 const unsigned long BUTTON_LONG_PRESS_MS = 1000;
 const unsigned long POSITION_UPDATE_INTERVAL_MS = 100;
 const unsigned long MQTT_RECONNECT_INTERVAL_MS = 5000;
-const unsigned long WIND_MEASUREMENT_INTERVAL_MS = 1000;
-const unsigned long WIND_SAFETY_CHECK_INTERVAL_MS = 5000;
 const unsigned long MQTT_PUBLISH_INTERVAL_MS = 1000;
 const unsigned long MOTOR_PULSE_DELAY_MS = 500;
 
@@ -24,15 +22,12 @@ const uint32_t EEPROM_MAGIC_VALUE = 0xDEADBEEF;
 
 // Default Settings
 const unsigned long DEFAULT_TRAVEL_TIME_MS = 15000;  // 15 seconds default travel time
-const float DEFAULT_WIND_THRESHOLD = 25.0;   // 25 km/h default wind threshold
-const float DEFAULT_WIND_FACTOR = 2.5;       // Default conversion factor (pulses/sec to km/h)
+const unsigned long DEFAULT_WIND_PULSE_THRESHOLD = 100;  // 100 pulses per minute default threshold
 
 // Limits
 const unsigned long MIN_TRAVEL_TIME_MS = 5000;
 const unsigned long MAX_TRAVEL_TIME_MS = 300000;
-const float MIN_WIND_THRESHOLD = 0.0;
-const float MAX_WIND_THRESHOLD = 100.0;
-const float MIN_WIND_FACTOR = 0.1;
-const float MAX_WIND_FACTOR = 10.0;
+const unsigned long MIN_WIND_PULSE_THRESHOLD = 0;
+const unsigned long MAX_WIND_PULSE_THRESHOLD = 1000;
 
 #endif // CONSTANTS_H

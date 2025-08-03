@@ -62,6 +62,10 @@ bool PositionTracker::shouldStop(MotorState motorState) const {
     return hasReachedTarget() || hasReachedLimit(motorState);
 }
 
+bool PositionTracker::isStoppingAtLimit(MotorState motorState) const {
+    return hasReachedLimit(motorState);
+}
+
 MotorState PositionTracker::getRequiredDirection() const {
     if (hasReachedTarget()) {
         return MOTOR_IDLE;

@@ -9,27 +9,19 @@ class WindSensor {
 private:
     volatile unsigned long* pulseCountPtr;
     unsigned long lastPulseCount;
-    unsigned long lastMeasurementTime;
-    unsigned long lastSafetyCheckTime;
-    float currentSpeed;
-    float speedThreshold;
-    float conversionFactor;
+    unsigned long lastCheckTime;
+    unsigned long pulsesPerMinute;
+    unsigned long pulseThreshold;
     bool safetyTriggered;
-    
-    float calculateSpeed(unsigned long pulseDelta, float timeDelta) const;
-    bool isTimeToMeasure() const;
-    bool isTimeForSafetyCheck() const;
     
 public:
     WindSensor(volatile unsigned long* pulseCounter);
     void begin();
     void update();
-    void setThreshold(float threshold);
-    void setConversionFactor(float factor);
+    void setThreshold(unsigned long threshold);
     
-    float getCurrentSpeed() const { return currentSpeed; }
-    float getThreshold() const { return speedThreshold; }
-    float getConversionFactor() const { return conversionFactor; }
+    unsigned long getPulsesPerMinute() const { return pulsesPerMinute; }
+    unsigned long getThreshold() const { return pulseThreshold; }
     bool isSafetyTriggered() const { return safetyTriggered; }
     void resetSafetyTrigger() { safetyTriggered = false; }
 };
