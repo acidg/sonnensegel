@@ -1,5 +1,6 @@
 #include "mqtt_handler.h"
 #include "constants.h"
+#include <ArduinoJson.h>
 
 MqttHandler* mqttHandlerInstance = nullptr;
 
@@ -23,6 +24,10 @@ void MqttHandler::buildTopics() {
     snprintf(windPulsesTopic, sizeof(windPulsesTopic), "%s/wind_pulses", baseTopic);
     snprintf(windThresholdTopic, sizeof(windThresholdTopic), "%s/wind_threshold", baseTopic);
     snprintf(setWindThresholdTopic, sizeof(setWindThresholdTopic), "%s/set_wind_threshold", baseTopic);
+    
+    // Build Home Assistant discovery topics
+    snprintf(discoveryTopic, sizeof(discoveryTopic), "homeassistant/cover/%s/config", clientId);
+    snprintf(windDiscoveryTopic, sizeof(windDiscoveryTopic), "homeassistant/sensor/%s_wind/config", clientId);
 }
 
 void MqttHandler::begin(const char* srv, uint16_t prt, const char* user, 
@@ -40,7 +45,7 @@ void MqttHandler::begin(const char* srv, uint16_t prt, const char* user,
     buildTopics();
     mqttClient.setServer(server, port);
     mqttClient.setCallback(staticCallback);
-    mqttClient.setBufferSize(512);
+    mqttClient.setBufferSize(1536);
 }
 
 void MqttHandler::setBaseTopic(const char* topic) {
@@ -62,6 +67,83 @@ void MqttHandler::subscribe() {
     mqttClient.subscribe(commandTopic);
     mqttClient.subscribe(setPositionTopic);
     mqttClient.subscribe(setWindThresholdTopic);
+}
+
+void MqttHandler::publishDiscovery() {
+    if (!isConnected()) {
+        return;
+    }
+    
+    // Publish cover discovery message
+    {
+        DynamicJsonDocument doc(1024);
+        
+        doc["name"] = "Awning";
+        doc["unique_id"] = clientId;
+        doc["command_topic"] = commandTopic;
+        doc["state_topic"] = stateTopic;
+        doc["position_topic"] = positionTopic;
+        doc["set_position_topic"] = setPositionTopic;
+        doc["availability_topic"] = availabilityTopic;
+        
+        // Command payloads
+        doc["payload_open"] = "OPEN";
+        doc["payload_close"] = "CLOSE";
+        doc["payload_stop"] = "STOP";
+        
+        // State payloads
+        doc["state_open"] = "open";
+        doc["state_opening"] = "opening";
+        doc["state_closed"] = "closed";
+        doc["state_closing"] = "closing";
+        doc["state_stopped"] = "stopped";
+        
+        // Position configuration
+        doc["position_open"] = 100;
+        doc["position_closed"] = 0;
+        
+        // Device information
+        JsonObject device = doc.createNestedObject("device");
+        device["identifiers"][0] = clientId;
+        device["name"] = "Awning Controller";
+        device["manufacturer"] = "DIY";
+        device["model"] = "ESP8266 Awning Controller";
+        device["sw_version"] = "1.0";
+        
+        char buffer[1024];
+        serializeJson(doc, buffer);
+        mqttClient.publish(discoveryTopic, buffer, true);
+        
+        Serial.print("Published discovery to: ");
+        Serial.println(discoveryTopic);
+    }
+    
+    // Publish wind sensor discovery message
+    {
+        DynamicJsonDocument doc(512);
+        
+        doc["name"] = "Awning Wind Sensor";
+        doc["unique_id"] = String(clientId) + "_wind";
+        doc["state_topic"] = windPulsesTopic;
+        doc["availability_topic"] = availabilityTopic;
+        doc["unit_of_measurement"] = "pulses/min";
+        doc["icon"] = "mdi:weather-windy";
+        
+        // Device information (same device)
+        JsonObject device = doc.createNestedObject("device");
+        device["identifiers"][0] = clientId;
+        device["name"] = "Awning Controller";
+        device["manufacturer"] = "DIY";
+        device["model"] = "ESP8266 Awning Controller";
+        device["sw_version"] = "1.0";
+        
+        char buffer[512];
+        serializeJson(doc, buffer);
+        mqttClient.publish(windDiscoveryTopic, buffer, true);
+        
+        Serial.print("Published wind sensor discovery to: ");
+        Serial.println(windDiscoveryTopic);
+    }
 }
 
 bool MqttHandler::reconnect() {
@@ -138,6 +220,7 @@ bool MqttHandler::reconnect() {
         Serial.println("connected");
         mqttClient.publish(availabilityTopic, "online", true);
         subscribe();
+        publishDiscovery();
         return true;
     }
     
@@ -178,9 +261,22 @@ void MqttHandler::publishState(MotorState motorState, float position) {
     
     lastPublish = now;
     
-    const char* state = "stopped";
-    if (motorState == MOTOR_EXTENDING) state = "opening";
-    else if (motorState == MOTOR_RETRACTING) state = "closing";
+    // Determine state based on motor state and position
+    const char* state;
+    if (motorState == MOTOR_EXTENDING) {
+        state = "opening";
+    } else if (motorState == MOTOR_RETRACTING) {
+        state = "closing";
+    } else {
+        // Motor is stopped - determine if open, closed, or stopped
+        if (position >= 99.0) {
+            state = "open";
+        } else if (position <= 1.0) {
+            state = "closed";
+        } else {
+            state = "stopped";
+        }
+    }
     
     mqttClient.publish(stateTopic, state, true);
     

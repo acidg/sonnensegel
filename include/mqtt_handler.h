@@ -35,10 +35,13 @@ private:
     char windPulsesTopic[128];
     char windThresholdTopic[128];
     char setWindThresholdTopic[128];
+    char discoveryTopic[128];
+    char windDiscoveryTopic[128];
     
     void buildTopics();
     bool reconnect();
     void subscribe();
+    void publishDiscovery();
     static void staticCallback(char* topic, byte* payload, unsigned int length);
     
 public:
@@ -46,7 +49,6 @@ public:
     void begin(const char* server, uint16_t port, const char* username, 
                const char* password, const char* clientId);
     void setBaseTopic(const char* topic);
-    void setCallback(std::function<void(char*, byte*, unsigned int)> callback);
     void loop();
     void publishState(MotorState motorState, float position);
     void publishWindData(unsigned long pulses, unsigned long threshold);
