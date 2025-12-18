@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include "pins.h"
 #include "constants.h"
+#include "awning_state_machine.h"
 
 enum MotorState {
     MOTOR_IDLE,
@@ -12,24 +13,29 @@ enum MotorState {
     MOTOR_STOPPING
 };
 
-class MotorController {
+class MotorController : public IMotorHardware {
 private:
     MotorState state;
     unsigned long motorStartTime;
-    
+
     bool isRelayActive() const;
     void sendPulse(uint8_t relayPin, unsigned long duration);
-    void deactivateRelays();
-    
+
 public:
     MotorController();
     void begin();
     void start(MotorState direction);
     void startWithoutStop(MotorState direction);
-    void stop(bool sendStopPulse = true);
+    void stop(uint8_t relayPin, bool sendStopPulse = true);
+    void stopBothRelays();
     MotorState getState() const { return state; }
     unsigned long getRunTime() const;
     bool isMoving() const { return state == MOTOR_EXTENDING || state == MOTOR_RETRACTING; }
+
+    // IMotorHardware interface implementation
+    void sendStartPulse(uint8_t relayPin) override;
+    void sendStopPulse(uint8_t relayPin) override;
+    void deactivateRelays() override;
 };
 
 #endif // MOTOR_CONTROLLER_H

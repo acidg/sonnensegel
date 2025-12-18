@@ -7,6 +7,7 @@
 #include "button_handler.h"
 #include "motor_controller.h"
 #include "position_tracker.h"
+#include "awning_controller.h"
 #include "wind_sensor.h"
 #include "mqtt_handler.h"
 #include "storage.h"
@@ -19,6 +20,7 @@ ButtonHandler extendButton(BUTTON_EXTEND);
 ButtonHandler retractButton(BUTTON_RETRACT);
 MotorController motor;
 PositionTracker positionTracker;
+AwningController awning(motor, positionTracker);
 volatile unsigned long windPulseCount = 0;
 WindSensor windSensor(&windPulseCount);
 MqttHandler mqtt;
@@ -47,11 +49,10 @@ void IRAM_ATTR windSensorISR() {
     }
 }
 
-// Helper function to set new target (allows motor controller to handle direction changes)
-void setTargetPositionWithInterrupt(float targetPosition, const char* source = "") {
-    // Set new target position - motor control logic will handle direction changes
-    positionTracker.setTargetPosition(targetPosition);
-    
+// Helper function to set new target via the state machine
+void setTargetPosition(float targetPosition, const char* source = "") {
+    awning.setTarget(targetPosition);
+
     if (strlen(source) > 0) {
         Serial.print(source);
         Serial.print(": Target set to ");
@@ -73,13 +74,14 @@ void initializeComponents() {
 
 // Load settings from configuration
 void loadSettings() {
-    positionTracker.setCurrentPosition(configManager.getCurrentPosition());
-    positionTracker.setTargetPosition(configManager.getTargetPosition());
+    float currentPos = configManager.getCurrentPosition();
+    // Initialize awning controller with current position (state starts as IDLE)
+    awning.setCurrentPosition(currentPos);
     positionTracker.setTravelTime(configManager.getTravelTime());
     windSensor.setThreshold(configManager.getWindThreshold());
-    
+
     Serial.print("Loaded - Position: ");
-    Serial.print(configManager.getCurrentPosition());
+    Serial.print(currentPos);
     Serial.print("%, Travel time: ");
     Serial.print(configManager.getTravelTime());
     Serial.print("ms, Wind threshold: ");
@@ -89,8 +91,8 @@ void loadSettings() {
 
 // Save current settings
 void saveSettings() {
-    configManager.setCurrentPosition(positionTracker.getCurrentPosition());
-    configManager.setTargetPosition(positionTracker.getTargetPosition());
+    configManager.setCurrentPosition(awning.getCurrentPosition());
+    configManager.setTargetPosition(awning.getTargetPosition());
     configManager.save();
 }
 
@@ -98,21 +100,20 @@ void saveSettings() {
 void setupMqttCallbacks() {
     mqtt.onCommand = [](const char* command) {
         if (strcmp(command, "OPEN") == 0) {
-            setTargetPositionWithInterrupt(100.0, "MQTT");
+            setTargetPosition(100.0, "MQTT");
         } else if (strcmp(command, "CLOSE") == 0) {
-            setTargetPositionWithInterrupt(0.0, "MQTT");
+            setTargetPosition(0.0, "MQTT");
         } else if (strcmp(command, "STOP") == 0) {
-            motor.stop();
-            positionTracker.setTargetPosition(positionTracker.getCurrentPosition());
-            Serial.println("MQTT: Emergency stop");
+            awning.stopBoth();
+            saveSettings();
+            Serial.println("MQTT: Stop (both relays)");
         }
     };
-    
+
     mqtt.onSetPosition = [](float position) {
-        setTargetPositionWithInterrupt(position, "MQTT");
+        setTargetPosition(position, "MQTT");
     };
-    
-    
+
     mqtt.onSetWindThreshold = [](float threshold) {
         windSensor.setThreshold((unsigned long)threshold);
         saveSettings();
@@ -122,55 +123,56 @@ void setupMqttCallbacks() {
     };
 }
 
-// Handle button press - returns true if button was pressed (for priority handling)
-bool handleButtonPress(ButtonHandler& button, float targetPosition) {
-    ButtonAction action = button.update();
-    
+// Handle extend button - returns true if button was pressed
+bool handleExtendButton() {
+    ButtonAction action = extendButton.update();
+
     if (action == BUTTON_SHORT_PRESS) {
-        motor.stop();
-        positionTracker.setTargetPosition(positionTracker.getCurrentPosition());
+        awning.stop(RELAY_EXTEND);
         saveSettings();
-        Serial.println("Button: Emergency stop");
+        Serial.println("Button: Stop (extend relay)");
         return true;
-    } else if (action == BUTTON_LONG_PRESS) {
-        setTargetPositionWithInterrupt(targetPosition, "Button");
+    }
+    if (action == BUTTON_LONG_PRESS) {
+        setTargetPosition(100.0, "Button");
         return true;
     }
     return false;
 }
 
-// Check if motor needs to start/stop
-void updateMotorControl() {
-    positionTracker.update(motor.getState());
-    
-    if (motor.isMoving() && positionTracker.shouldStop(motor.getState())) {
-        bool stoppingAtLimit = positionTracker.isStoppingAtLimit(motor.getState());
-        motor.stop(!stoppingAtLimit);
+// Handle retract button - returns true if button was pressed
+bool handleRetractButton() {
+    ButtonAction action = retractButton.update();
+
+    if (action == BUTTON_SHORT_PRESS) {
+        awning.stop(RELAY_RETRACT);
         saveSettings();
-        return;
+        Serial.println("Button: Stop (retract relay)");
+        return true;
     }
-    
-    MotorState requiredDirection = positionTracker.getRequiredDirection();
-    
-    // Start motor if needed
-    if (requiredDirection != MOTOR_IDLE && requiredDirection != motor.getState()) {
-        if (motor.isMoving()) {
-            // Direction change - no stop pulse needed
-            motor.startWithoutStop(requiredDirection);
-        } else {
-            // Starting from idle - use normal start
-            motor.start(requiredDirection);
-        }
+    if (action == BUTTON_LONG_PRESS) {
+        setTargetPosition(0.0, "Button");
+        return true;
     }
+    return false;
 }
 
 // Handle wind safety
 void handleWindSafety() {
     windSensor.update();
-    
-    if (windSensor.isSafetyTriggered() && positionTracker.getCurrentPosition() > 0.0) {
-        setTargetPositionWithInterrupt(0.0, "Wind Safety");
+
+    if (windSensor.isSafetyTriggered() && awning.getCurrentPosition() > 0.0) {
+        setTargetPosition(0.0, "Wind Safety");
         windSensor.resetSafetyTrigger();
+    }
+}
+
+// Convert AwningState to MotorState for MQTT publishing
+MotorState awningStateToMotorState(AwningState state) {
+    switch (state) {
+        case AWNING_EXTENDING: return MOTOR_EXTENDING;
+        case AWNING_RETRACTING: return MOTOR_RETRACTING;
+        default: return MOTOR_IDLE;
     }
 }
 
@@ -178,10 +180,10 @@ void handleWindSafety() {
 void publishState() {
     static unsigned long lastPublish = 0;
     unsigned long now = millis();
-    
+
     if (now - lastPublish >= 5000) {
-        mqtt.publishState(motor.getState(), positionTracker.getCurrentPosition());
-        mqtt.publishWindData(windSensor.getPulsesPerMinute(), 
+        mqtt.publishState(awningStateToMotorState(awning.getState()), awning.getCurrentPosition());
+        mqtt.publishWindData(windSensor.getPulsesPerMinute(),
                            windSensor.getThreshold());
         lastPublish = now;
     }
@@ -259,15 +261,20 @@ void loop() {
     }
     
     // Handle buttons FIRST - they have priority over all other commands
-    bool buttonPressed = false;
-    buttonPressed |= handleButtonPress(extendButton, 100.0);
-    buttonPressed |= handleButtonPress(retractButton, 0.0);
-    
-    // Skip motor control updates if button was just pressed to avoid conflicts
+    bool buttonPressed = handleExtendButton() || handleRetractButton();
+
+    // Update awning state machine (handles motor control)
+    static bool wasMoving = false;
     if (!buttonPressed) {
-        updateMotorControl();
+        awning.update();
+        // Save settings when motor stops
+        bool isMoving = awning.isMoving();
+        if (wasMoving && !isMoving) {
+            saveSettings();
+        }
+        wasMoving = isMoving;
     }
-    
+
     handleWindSafety();
     
     // Only run network services if connected

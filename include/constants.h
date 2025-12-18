@@ -3,7 +3,7 @@
 
 // Timing Constants
 const unsigned long MOTOR_START_PULSE_MS = 1000;
-const unsigned long MOTOR_STOP_PULSE_MS = 100;
+const unsigned long MOTOR_STOP_PULSE_MS = 250;
 const unsigned long BUTTON_DEBOUNCE_MS = 20;
 const unsigned long BUTTON_LONG_PRESS_MS = 1000;
 const unsigned long WIND_SENSOR_DEBOUNCE_MS = 10;

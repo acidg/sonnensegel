@@ -1,18 +1,18 @@
 #include "web_interface.h"
 #include <ArduinoJson.h>
 #include <ESP8266mDNS.h>
-#include "motor_controller.h"
+#include "awning_controller.h"
 #include "position_tracker.h"
 #include "wind_sensor.h"
 #include "constants.h"
 #include "web_pages.h"
 
 // External references to global objects from main.cpp
-extern MotorController motor;
+extern AwningController awning;
 extern PositionTracker positionTracker;
 extern WindSensor windSensor;
 extern void saveSettings();
-extern void setTargetPositionWithInterrupt(float targetPosition, const char* source);
+extern void setTargetPosition(float targetPosition, const char* source);
 
 WebInterface::WebInterface(ConfigManager* config) : server(80), configManager(config), 
     calibrationInProgress(false), calibrationStartTime(0) {
@@ -57,21 +57,22 @@ void WebInterface::handleControl() {
         server.send(400, "text/plain", "Missing action parameter");
         return;
     }
-    
+
     String action = server.arg("action");
-    
+
     if (action == "open") {
-        setTargetPositionWithInterrupt(100.0, "Web");
+        setTargetPosition(100.0, "Web");
     } else if (action == "close") {
-        setTargetPositionWithInterrupt(0.0, "Web");
+        setTargetPosition(0.0, "Web");
     } else if (action == "stop") {
-        motor.stop();
-        positionTracker.setTargetPosition(positionTracker.getCurrentPosition());
+        // Use last movement relay for web stop
+        awning.stop(awning.getLastMovementRelay());
+        saveSettings();
         Serial.println("Web: Command STOP");
     } else if (action == "position" && server.hasArg("value")) {
         float position = server.arg("value").toFloat();
         if (position >= 0.0 && position <= 100.0) {
-            setTargetPositionWithInterrupt(position, "Web");
+            setTargetPosition(position, "Web");
         } else {
             server.send(400, "text/plain", "Invalid position value");
             return;
@@ -80,7 +81,7 @@ void WebInterface::handleControl() {
         server.send(400, "text/plain", "Invalid action");
         return;
     }
-    
+
     server.send(200, "text/plain", "OK");
 }
 
@@ -91,36 +92,35 @@ void WebInterface::handleStatus() {
 void WebInterface::handleCalibrate() {
     if (!calibrationInProgress) {
         // Start calibration
-        if (positionTracker.getCurrentPosition() > 5.0) {
+        if (awning.getCurrentPosition() > 5.0) {
             server.send(400, "text/plain", "Awning must be at 0% position to start calibration");
             return;
         }
-        
+
         calibrationInProgress = true;
         calibrationStartTime = millis();
-        setTargetPositionWithInterrupt(100.0, "Calibration");
-        
+        setTargetPosition(100.0, "Calibration");
+
         Serial.println("Web: Calibration started - awning extending");
         server.send(200, "text/plain", "Calibration started");
     } else {
         // Stop calibration and calculate travel time
         unsigned long travelTime = millis() - calibrationStartTime;
-        
+
         // Stop motor immediately
-        motor.stop();
-        positionTracker.setTargetPosition(positionTracker.getCurrentPosition());
-        
+        awning.stop(awning.getLastMovementRelay());
+
         // Set the measured travel time
         configManager->setTravelTime(travelTime);
         positionTracker.setTravelTime(travelTime);
         configManager->save();
-        
+
         calibrationInProgress = false;
-        
+
         Serial.print("Web: Calibration completed - travel time set to ");
         Serial.print(travelTime);
         Serial.println(" ms");
-        
+
         server.send(200, "text/plain", "Calibration completed");
     }
 }
@@ -431,21 +431,21 @@ void WebInterface::handleNotFound() {
 
 String WebInterface::getStatusJson() {
     DynamicJsonDocument doc(512);
-    
-    doc["position"] = positionTracker.getCurrentPosition();
-    doc["target"] = positionTracker.getTargetPosition();
+
+    doc["position"] = awning.getCurrentPosition();
+    doc["target"] = awning.getTargetPosition();
     doc["travelTime"] = positionTracker.getTravelTime();
     doc["windPulses"] = windSensor.getPulsesPerMinute();
     doc["windThreshold"] = windSensor.getThreshold();
     doc["calibrating"] = calibrationInProgress;
-    
+
     // Motor state as string
-    switch (motor.getState()) {
-        case MOTOR_EXTENDING: doc["motor"] = "Extending"; break;
-        case MOTOR_RETRACTING: doc["motor"] = "Retracting"; break;
+    switch (awning.getState()) {
+        case AWNING_EXTENDING: doc["motor"] = "Extending"; break;
+        case AWNING_RETRACTING: doc["motor"] = "Retracting"; break;
         default: doc["motor"] = "Idle"; break;
     }
-    
+
     String result;
     serializeJson(doc, result);
     return result;

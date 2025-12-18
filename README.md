@@ -82,6 +82,10 @@ Motor Controller Connections:
 4. Select board: "NodeMCU 1.0 (ESP-12E Module)"
 5. Upload to device
 
+## Running Tests
+
+Run `pio test -e native` to execute all test cases.
+
 ## Configuration
 
 Configuration is done through the web interface when the device starts. No manual code editing required.
@@ -134,9 +138,7 @@ mosquitto_pub -h your_mqtt_server -t "home/awning/set_wind_threshold" -m "30"
 
 ## Home Assistant Integration
 
-1. Copy the contents of `homeassistant.yaml` to your HA configuration
-2. Restart Home Assistant
-3. The awning will appear as a cover entity with wind sensor data
+We are publishing topics for Home Assistant's auto discovery functionality to allow detecting the controller automatically.
 
 ## Operation
 
@@ -152,47 +154,8 @@ When wind speed exceeds the threshold:
 
 ### Safety Features
 - Relay interlock prevents simultaneous activation
-- Automatic stop at end positions
 - Position saved to EEPROM every stop
 - Continues operation without WiFi/MQTT
-
-## Troubleshooting
-
-### No WiFi Connection
-- Use web interface to configure credentials
-- Verify router settings (2.4GHz network)
-- Buttons continue to work offline
-
-### Position Drift
-- Recalibrate travel time
-- Check for mechanical slippage
-- Ensure consistent motor speed
-
-### Wind Sensor Issues
-- Verify pulse signal with oscilloscope
-- Check pull-up resistor on GPIO5
-- Adjust conversion factor for accuracy
-
-### MQTT Connection Failed
-- Verify server address and port
-- Check username/password
-- Ensure unique client ID
-- Check MQTT broker logs
-
-## LED Status Indicators (Optional)
-
-Add status LEDs to unused GPIO pins:
-- **Blue LED**: WiFi connected
-- **Green LED**: MQTT connected
-- **Red LED**: Wind safety activated
-
-## Safety Notes
-
-1. Never operate during storms or high winds
-2. Ensure proper weatherproofing of electronics
-3. Use appropriate fuses/circuit breakers
-4. Test emergency stop functionality regularly
-5. Mount wind sensor in unobstructed location
 
 ## License
 
