@@ -1,7 +1,7 @@
 #include "motor_controller.h"
 
 MotorController::MotorController()
-    : state(MOTOR_IDLE), motorStartTime(0) {
+    : core(&relayHardware, &timeProvider) {
 }
 
 void MotorController::begin() {
@@ -11,34 +11,52 @@ void MotorController::begin() {
     digitalWrite(RELAY_RETRACT, LOW);
 }
 
-bool MotorController::isRelayActive() const {
-    return digitalRead(RELAY_EXTEND) == HIGH || digitalRead(RELAY_RETRACT) == HIGH;
+void MotorController::update() {
+    core.update(timeProvider.millis());
 }
 
-void MotorController::deactivateRelays() {
-    digitalWrite(RELAY_EXTEND, LOW);
-    digitalWrite(RELAY_RETRACT, LOW);
-}
-
-void MotorController::sendPulse(uint8_t relayPin, unsigned long duration) {
-    if (isRelayActive()) {
-        return;
+MotorState MotorController::getState() const {
+    MotorOperationState opState = core.getOperationState();
+    switch (opState) {
+        case MOTOR_OP_EXTENDING:
+            return MOTOR_EXTENDING;
+        case MOTOR_RETRACTING:
+            return MOTOR_RETRACTING;
+        default:
+            return MOTOR_IDLE;
     }
-
-    digitalWrite(relayPin, HIGH);
-    delay(duration);
-    digitalWrite(relayPin, LOW);
 }
 
-// IMotorHardware interface implementation
+bool MotorController::isMoving() const {
+    return core.isMoving();
+}
+
+bool MotorController::isBusy() const {
+    return core.isBusy();
+}
+
+unsigned long MotorController::getRunTime() const {
+    return core.getRunTime();
+}
+
 void MotorController::sendStartPulse(uint8_t relayPin) {
-    sendPulse(relayPin, MOTOR_START_PULSE_MS);
-    state = (relayPin == RELAY_EXTEND) ? MOTOR_EXTENDING : MOTOR_RETRACTING;
-    motorStartTime = millis();
+    core.requestStartPulse(relayPin);
+    while (core.isBusy()) {
+        update();
+        yield();
+    }
 }
 
 void MotorController::sendStopPulse(uint8_t relayPin) {
-    sendPulse(relayPin, MOTOR_STOP_PULSE_MS);
+    core.requestStopPulse(relayPin);
+    while (core.isBusy()) {
+        update();
+        yield();
+    }
+}
+
+void MotorController::deactivateRelays() {
+    core.deactivateRelays();
 }
 
 void MotorController::start(MotorState direction) {
@@ -48,79 +66,58 @@ void MotorController::start(MotorState direction) {
 
     uint8_t relayPin = (direction == MOTOR_EXTENDING) ? RELAY_EXTEND : RELAY_RETRACT;
 
-    if (state != MOTOR_IDLE) {
-        // Stop using the relay for the current direction
-        uint8_t currentRelay = (state == MOTOR_EXTENDING) ? RELAY_EXTEND : RELAY_RETRACT;
+    if (getState() != MOTOR_IDLE) {
+        uint8_t currentRelay = (getState() == MOTOR_EXTENDING) ? RELAY_EXTEND : RELAY_RETRACT;
         stop(currentRelay, true);
-        delay(MOTOR_PULSE_DELAY_MS);
     }
 
-    sendPulse(relayPin, MOTOR_START_PULSE_MS);
-
-    state = direction;
-    motorStartTime = millis();
+    sendStartPulse(relayPin);
 }
 
 void MotorController::startWithoutStop(MotorState direction) {
     if (direction != MOTOR_EXTENDING && direction != MOTOR_RETRACTING) {
         return;
     }
-    
-    // Deactivate any active relays first (no stop pulse)
-    if (isRelayActive()) {
-        deactivateRelays();
-        delay(100); // Brief pause to let relays settle
-    }
-    
-    uint8_t relayPin = (direction == MOTOR_EXTENDING) ? RELAY_EXTEND : RELAY_RETRACT;
-    sendPulse(relayPin, MOTOR_START_PULSE_MS);
-    
-    state = direction;
-    motorStartTime = millis();
-}
 
-void MotorController::stop(uint8_t relayPin, bool sendStopPulse) {
-    if (sendStopPulse) {
-        sendPulse(relayPin, MOTOR_STOP_PULSE_MS);
-    }
-
-    if (state == MOTOR_IDLE) {
-        return;
-    }
-
-    state = MOTOR_STOPPING;
-
-    if (isRelayActive()) {
+    if (relayHardware.isAnyRelayActive()) {
         deactivateRelays();
         delay(100);
     }
 
-    state = MOTOR_IDLE;
+    uint8_t relayPin = (direction == MOTOR_EXTENDING) ? RELAY_EXTEND : RELAY_RETRACT;
+    sendStartPulse(relayPin);
+}
+
+void MotorController::stop(uint8_t relayPin, bool sendStopPulseFlag) {
+    if (sendStopPulseFlag) {
+        sendStopPulse(relayPin);
+    }
+
+    if (getState() == MOTOR_IDLE) {
+        return;
+    }
+
+    if (relayHardware.isAnyRelayActive()) {
+        deactivateRelays();
+        delay(100);
+    }
+
+    core.stopMotor();
 }
 
 void MotorController::stopBothRelays() {
-    // Send stop pulse on both relays for reliable stop
-    sendPulse(RELAY_EXTEND, MOTOR_STOP_PULSE_MS);
+    sendStopPulse(RELAY_EXTEND);
     delay(50);
-    sendPulse(RELAY_RETRACT, MOTOR_STOP_PULSE_MS);
+    sendStopPulse(RELAY_RETRACT);
 
-    if (state == MOTOR_IDLE) {
+    if (getState() == MOTOR_IDLE) {
         return;
     }
 
-    state = MOTOR_STOPPING;
-
-    if (isRelayActive()) {
+    if (relayHardware.isAnyRelayActive()) {
         deactivateRelays();
         delay(100);
     }
 
-    state = MOTOR_IDLE;
-}
-
-unsigned long MotorController::getRunTime() const {
-    if (!isMoving()) {
-        return 0;
-    }
-    return millis() - motorStartTime;
+    core.stopMotor();
 }

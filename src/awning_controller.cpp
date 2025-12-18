@@ -7,6 +7,9 @@ AwningController::AwningController(MotorController& motorController, PositionTra
 }
 
 void AwningController::update() {
+    // Update motor controller (non-blocking pulse state machine)
+    motor.update();
+
     // Update position tracking based on current state
     MotorState motorState = MOTOR_IDLE;
     AwningState state = stateMachine.getState();
